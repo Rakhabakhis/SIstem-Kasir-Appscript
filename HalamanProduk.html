@@ -1,0 +1,73 @@
+<!-- =====================================================
+     HALAMAN PRODUK - Product Management Page
+     ===================================================== -->
+
+<div class="page-header">
+  <div class="page-title-row">
+    <button class="mobile-toggle" onclick="toggleSidebar()">
+      <span class="material-icons-round">menu</span>
+    </button>
+    <h1 class="page-title">Menu Produk</h1>
+  </div>
+  <button class="btn btn-primary" onclick="openTambahProdukModal()">
+    <span class="material-icons-round">add</span> Tambah Produk
+  </button>
+</div>
+
+<div class="page-body">
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <div class="search-bar">
+      <span class="material-icons-round">search</span>
+      <input type="text" id="search-produk-admin" placeholder="Cari produk..." oninput="filterProdukAdmin()">
+    </div>
+    <div class="filter-row">
+      <select id="filter-kategori-admin" class="form-control form-select" style="width:auto" onchange="filterProdukAdmin()">
+        <option value="">Semua Kategori</option>
+      </select>
+      <select id="filter-status-admin" class="form-control form-select" style="width:auto" onchange="filterProdukAdmin()">
+        <option value="">Semua Status</option>
+        <option value="Aktif">Aktif</option>
+        <option value="Nonaktif">Nonaktif</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Product Table -->
+  <div class="card">
+    <div style="overflow-x:auto">
+      <table class="data-table" id="produk-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Produk</th>
+            <th>Kategori</th>
+            <th>Harga</th>
+            <th>Stok</th>
+            <th>Status</th>
+            <th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="produk-tbody">
+          <tr><td colspan="7" style="text-align:center;padding:20px;color:var(--text-muted)">Memuat data...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+function filterProdukAdmin() {
+  var keyword = (document.getElementById('search-produk-admin').value || '').toLowerCase();
+  var kategori = document.getElementById('filter-kategori-admin').value;
+  var status = document.getElementById('filter-status-admin').value;
+  var rows = document.querySelectorAll('#produk-tbody tr');
+  rows.forEach(function(row) {
+    var text = row.textContent.toLowerCase();
+    var matchKeyword = !keyword || text.indexOf(keyword) !== -1;
+    var matchKat = !kategori || text.indexOf(kategori.toLowerCase()) !== -1;
+    var matchStatus = !status || text.indexOf(status.toLowerCase()) !== -1;
+    row.style.display = (matchKeyword && matchKat && matchStatus) ? '' : 'none';
+  });
+}
+</script>

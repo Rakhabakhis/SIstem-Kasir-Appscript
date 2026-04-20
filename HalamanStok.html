@@ -1,0 +1,142 @@
+<!-- =====================================================
+     HALAMAN STOK - Stock Management & Log Page
+     ===================================================== -->
+
+<div class="page-header">
+  <div class="page-title-row">
+    <button class="mobile-toggle" onclick="toggleSidebar()">
+      <span class="material-icons-round">menu</span>
+    </button>
+    <h1 class="page-title">Update Stok</h1>
+  </div>
+</div>
+
+<div class="page-body">
+  <!-- Update Stock Form -->
+  <div class="card" style="margin-bottom:24px">
+    <div class="card-header">
+      <h3 style="font-weight:700;font-size:15px;">
+        <span class="material-icons-round" style="font-size:18px;vertical-align:middle;color:var(--primary)">inventory</span>
+        Update Stok Produk
+      </h3>
+    </div>
+    <div class="card-body">
+      <form id="stok-form" onsubmit="event.preventDefault();submitUpdateStok()">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          <div class="form-group" style="grid-column:1/-1">
+            <label class="form-label">Pilih Produk *</label>
+            <select id="stok-produk-select" class="form-control form-select" required>
+              <option value="">-- Pilih Produk --</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Tipe Perubahan *</label>
+            <select id="stok-tipe" class="form-control form-select" required>
+              <option value="">Pilih Tipe...</option>
+              <option value="Masuk">📥 Stok Masuk</option>
+              <option value="Keluar">📤 Stok Keluar</option>
+              <option value="Penyesuaian">🔄 Penyesuaian (set ke angka)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Jumlah *</label>
+            <input type="number" id="stok-jumlah" class="form-control" min="1" required placeholder="0">
+          </div>
+          <div class="form-group" style="grid-column:1/-1">
+            <label class="form-label">Keterangan</label>
+            <input type="text" id="stok-keterangan" class="form-control" placeholder="Alasan perubahan stok...">
+          </div>
+        </div>
+        <div style="text-align:right;margin-top:8px">
+          <button type="button" class="btn btn-secondary" onclick="document.getElementById('stok-form').reset()">Reset</button>
+          <button type="submit" class="btn btn-primary">
+            <span class="material-icons-round">save</span> Update Stok
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Log Stok -->
+  <div class="card">
+    <div class="card-header">
+      <h3 style="font-weight:700;font-size:15px;">
+        <span class="material-icons-round" style="font-size:18px;vertical-align:middle;color:var(--primary)">history</span>
+        Log Perubahan Stok
+      </h3>
+      <button class="btn btn-sm btn-secondary" onclick="loadLogStok()">
+        <span class="material-icons-round" style="font-size:14px">refresh</span> Refresh
+      </button>
+    </div>
+    
+    <div style="padding:12px 20px;border-bottom:1px solid var(--border)">
+      <div class="filter-row">
+        <select id="log-filter-produk" class="form-control form-select" style="width:auto;min-width:150px" onchange="loadLogStok()">
+          <option value="">Semua Produk</option>
+        </select>
+        <select id="log-filter-tipe" class="form-control form-select" style="width:auto" onchange="loadLogStok()">
+          <option value="">Semua Tipe</option>
+          <option value="Masuk">Masuk</option>
+          <option value="Keluar">Keluar</option>
+          <option value="Penyesuaian">Penyesuaian</option>
+        </select>
+        <div class="log-date-range">
+          <div class="log-date-field">
+            <label class="log-date-label">
+              <span class="material-icons-round" style="font-size:14px">calendar_today</span> Dari
+            </label>
+            <input type="date" id="log-filter-dari" class="form-control" style="width:auto;font-size:12px;padding:6px 10px;" onchange="loadLogStok()">
+          </div>
+          <span class="log-date-separator">—</span>
+          <div class="log-date-field">
+            <label class="log-date-label">
+              <span class="material-icons-round" style="font-size:14px">event</span> Sampai
+            </label>
+            <input type="date" id="log-filter-sampai" class="form-control" style="width:auto;font-size:12px;padding:6px 10px;" onchange="loadLogStok()">
+          </div>
+        </div>
+        <button class="btn btn-sm btn-secondary" onclick="clearLogStokFilter()" title="Reset Filter" style="padding:6px 10px;">
+          <span class="material-icons-round" style="font-size:14px">filter_alt_off</span>
+        </button>
+      </div>
+    </div>
+    
+    <div style="overflow-x:auto">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Tanggal</th>
+            <th>Produk</th>
+            <th>Sebelum</th>
+            <th>Perubahan</th>
+            <th>Sesudah</th>
+            <th>Tipe</th>
+            <th>Keterangan</th>
+            <th>Oleh</th>
+          </tr>
+        </thead>
+        <tbody id="log-stok-tbody">
+          <tr><td colspan="8" style="text-align:center;padding:20px;color:var(--text-muted)">Memuat data...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+// Populate log filter with product names when stok page loads
+(function() {
+  var origLoadStokPage = window.loadStokPage;
+  window.loadStokPage = function() {
+    origLoadStokPage();
+    var filterSel = document.getElementById('log-filter-produk');
+    if (filterSel && APP.produk) {
+      var opts = '<option value="">Semua Produk</option>';
+      for (var i = 0; i < APP.produk.length; i++) {
+        opts += '<option value="' + APP.produk[i].id + '">' + APP.produk[i].nama + '</option>';
+      }
+      filterSel.innerHTML = opts;
+    }
+  };
+})();
+</script>

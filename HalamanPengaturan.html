@@ -1,0 +1,124 @@
+<!-- =====================================================
+     HALAMAN PENGATURAN - Settings & Kasir Management
+     ===================================================== -->
+
+<div class="page-header">
+  <div class="page-title-row">
+    <button class="mobile-toggle" onclick="toggleSidebar()">
+      <span class="material-icons-round">menu</span>
+    </button>
+    <h1 class="page-title">Pengaturan</h1>
+  </div>
+</div>
+
+<div class="page-body">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+    
+    <!-- Pengaturan Toko -->
+    <div class="card">
+      <div class="card-header">
+        <h3 style="font-weight:700;font-size:15px;">
+          <span class="material-icons-round" style="font-size:18px;vertical-align:middle;color:var(--primary)">store</span>
+          Informasi Toko
+        </h3>
+      </div>
+      <div class="card-body">
+        <div class="form-group">
+          <label class="form-label">Nama Toko</label>
+          <input type="text" id="set-nama-toko" class="form-control" placeholder="Nama toko...">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Alamat</label>
+          <input type="text" id="set-alamat" class="form-control" placeholder="Alamat toko...">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Telepon</label>
+          <input type="text" id="set-telepon" class="form-control" placeholder="0812-xxxx-xxxx">
+        </div>
+        <button class="btn btn-primary" onclick="savePengaturanToko()">
+          <span class="material-icons-round">save</span> Simpan
+        </button>
+      </div>
+    </div>
+
+    <!-- Pengaturan Pajak -->
+    <div class="card">
+      <div class="card-header">
+        <h3 style="font-weight:700;font-size:15px;">
+          <span class="material-icons-round" style="font-size:18px;vertical-align:middle;color:var(--primary)">receipt</span>
+          Pengaturan Pajak
+        </h3>
+      </div>
+      <div class="card-body">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;padding:16px;background:var(--bg);border-radius:var(--radius-sm);">
+          <div>
+            <div style="font-weight:600;font-size:14px;">Pajak Aktif</div>
+            <div style="font-size:12px;color:var(--text-muted);">Aktifkan pajak pada transaksi</div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="set-pajak-aktif" onchange="togglePajakField()">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="form-group" id="pajak-persen-group">
+          <label class="form-label">Persentase Pajak (%)</label>
+          <input type="number" id="set-pajak-persen" class="form-control" min="0" max="100" placeholder="10" style="max-width:150px;">
+        </div>
+        <button class="btn btn-primary" onclick="savePengaturanPajak()">
+          <span class="material-icons-round">save</span> Simpan Pajak
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Manajemen Kasir -->
+  <div class="card" style="margin-top:24px;">
+    <div class="card-header">
+      <h3 style="font-weight:700;font-size:15px;">
+        <span class="material-icons-round" style="font-size:18px;vertical-align:middle;color:var(--primary)">people</span>
+        Manajemen Kasir
+      </h3>
+      <button class="btn btn-sm btn-primary" onclick="openTambahKasirModal()">
+        <span class="material-icons-round" style="font-size:14px">person_add</span> Tambah Kasir
+      </button>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Nama</th>
+            <th>PIN</th>
+            <th>Role</th>
+            <th>Status</th>
+            <th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="kasir-tbody">
+          <tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted)">Memuat...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Info URL Gambar -->
+  <div class="card" style="margin-top:24px;">
+    <div class="card-header">
+      <h3 style="font-weight:700;font-size:15px;">
+        <span class="material-icons-round" style="font-size:18px;vertical-align:middle;color:var(--primary)">image</span>
+        Panduan URL Gambar Produk
+      </h3>
+    </div>
+    <div class="card-body" style="font-size:13px;line-height:2;color:var(--text-secondary)">
+      <p>📸 <strong>Google Drive:</strong></p>
+      <ol style="margin-left:20px;margin-bottom:12px;">
+        <li>Upload gambar ke Google Drive</li>
+        <li>Klik kanan → <strong>Share</strong> → Ubah ke <strong>"Anyone with the link"</strong></li>
+        <li>Copy link, ambil bagian ID file (contoh: <code>1AbC_dEfGhI</code>)</li>
+        <li>Gunakan format: <code>https://drive.google.com/uc?id=ID_FILE</code></li>
+      </ol>
+      <p>🌐 <strong>URL Online:</strong> Bisa langsung gunakan URL gambar dari website manapun.</p>
+      <p>📏 <strong>Rekomendasi:</strong> Ukuran gambar 300x300 piksel, format JPG/PNG.</p>
+    </div>
+  </div>
+</div>

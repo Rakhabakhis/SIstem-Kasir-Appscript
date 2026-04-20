@@ -1,0 +1,15 @@
+{
+  "name": "kasir",
+  "version": "1.0.0",
+  "description": "Sistem Point of Sale lengkap menggunakan Google Apps Script & Google Sheets sebagai database.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "exceljs": "^4.4.0"
+  }
+}

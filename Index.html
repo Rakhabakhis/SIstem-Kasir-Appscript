@@ -1,0 +1,339 @@
+<!-- =====================================================
+     INDEX.HTML - Main Layout & Navigation Shell
+     Sistem Kasir (POS) - Google Apps Script
+     ===================================================== -->
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="description" content="Sistem Kasir POS - Aplikasi Point of Sale">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+  <?!= include('Stylesheet') ?>
+</head>
+
+<body>
+
+  <!-- ===== LOGIN SCREEN ===== -->
+  <div id="login-screen" class="login-screen">
+    <div class="login-card">
+      <div class="login-logo">
+        <div class="sidebar-logo" style="width:56px;height:56px;font-size:24px;border-radius:14px;">K</div>
+      </div>
+      <h2 style="text-align:center;margin-bottom:4px;font-size:22px;">Sistem Kasir</h2>
+      <p style="text-align:center;color:var(--text-muted);margin-bottom:24px;font-size:13px;">Masukkan nama dan PIN
+        untuk login</p>
+
+      <div class="form-group">
+        <label class="form-label">Nama Kasir</label>
+        <select id="login-nama" class="form-control form-select" style="font-size:15px;">
+          <option value="">Memuat...</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">PIN</label>
+        <input type="password" id="login-pin" class="form-control" placeholder="Masukkan PIN..." maxlength="6"
+          style="font-size:18px;letter-spacing:8px;text-align:center;" onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <div id="login-error"
+        style="color:var(--danger);font-size:13px;text-align:center;margin-bottom:12px;display:none;"></div>
+      <button class="btn btn-primary btn-block" onclick="doLogin()" style="padding:14px;font-size:15px;">
+        <span class="material-icons-round">login</span> Masuk
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div id="loading-overlay" class="loading-overlay" style="display:none;">
+    <div class="spinner"></div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Sidebar Overlay (mobile) -->
+  <div class="sidebar-overlay" onclick="closeSidebar()"></div>
+
+  <div class="app-container" id="app-container" style="display:none;">
+
+    <!-- ===== SIDEBAR ===== -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo" id="sidebar-logo-initial">K</div>
+        <span class="sidebar-title" id="sidebar-store-name">Sistem Kasir</span>
+      </div>
+
+      <div class="sidebar-search">
+        <span class="material-icons-round search-icon">search</span>
+        <input type="text" placeholder="Cari menu..." id="sidebar-search" onkeyup="searchProducts()">
+      </div>
+
+      <div class="nav-section-label">MAIN MENU</div>
+      <ul class="nav-menu">
+        <li class="nav-item active" data-page="kasir" onclick="navigateTo('kasir')">
+          <span class="material-icons-round">point_of_sale</span> Pesanan Baru
+        </li>
+        <li class="nav-item" data-page="produk" onclick="navigateTo('produk')">
+          <span class="material-icons-round">restaurant_menu</span> Menu Produk
+        </li>
+        <li class="nav-item" data-page="kategori" onclick="navigateTo('kategori')">
+          <span class="material-icons-round">category</span> Kategori
+        </li>
+        <li class="nav-item" data-page="riwayat" onclick="navigateTo('riwayat')">
+          <span class="material-icons-round">history</span> Riwayat Transaksi
+        </li>
+      </ul>
+
+      <div class="nav-section-label">MANAJEMEN</div>
+      <ul class="nav-menu">
+        <li class="nav-item" data-page="stok" onclick="navigateTo('stok')">
+          <span class="material-icons-round">inventory_2</span> Update Stok
+        </li>
+        <li class="nav-item" data-page="laporan" onclick="navigateTo('laporan')">
+          <span class="material-icons-round">assessment</span> Laporan Penjualan
+        </li>
+        <li class="nav-item" data-page="pengaturan" onclick="navigateTo('pengaturan')">
+          <span class="material-icons-round">settings</span> Pengaturan
+        </li>
+      </ul>
+
+      <div style="flex:1"></div>
+
+      <div class="sidebar-footer">
+        <div class="avatar" id="avatar-initial">K</div>
+        <div style="flex:1">
+          <div class="user-name" id="user-name">Kasir</div>
+          <div class="user-role">Shift Aktif</div>
+        </div>
+        <button class="btn-icon" onclick="doLogout()" title="Logout">
+          <span class="material-icons-round" style="font-size:18px;color:var(--danger)">logout</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- ===== MAIN CONTENT ===== -->
+    <div class="main-content">
+
+      <!-- ===== PAGE: KASIR ===== -->
+      <section id="page-kasir" class="page active">
+        <?!= include('HalamanKasir') ?>
+      </section>
+
+      <!-- ===== PAGE: PRODUK ===== -->
+      <section id="page-produk" class="page">
+        <?!= include('HalamanProduk') ?>
+      </section>
+
+      <!-- ===== PAGE: KATEGORI ===== -->
+      <section id="page-kategori" class="page">
+        <?!= include('HalamanKategori') ?>
+      </section>
+
+      <!-- ===== PAGE: STOK ===== -->
+      <section id="page-stok" class="page">
+        <?!= include('HalamanStok') ?>
+      </section>
+
+      <!-- ===== PAGE: LAPORAN ===== -->
+      <section id="page-laporan" class="page">
+        <?!= include('HalamanLaporan') ?>
+      </section>
+
+      <!-- ===== PAGE: RIWAYAT ===== -->
+      <section id="page-riwayat" class="page">
+        <?!= include('HalamanRiwayat') ?>
+      </section>
+
+      <!-- ===== PAGE: PENGATURAN ===== -->
+      <section id="page-pengaturan" class="page">
+        <?!= include('HalamanPengaturan') ?>
+      </section>
+
+    </div>
+  </div>
+
+  <!-- ===== MODAL: PAYMENT ===== -->
+  <div id="modal-payment" class="modal-overlay" onclick="if(event.target===this)closeModal('modal-payment')">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Pembayaran</h3>
+        <button class="modal-close" onclick="closeModal('modal-payment')"><span
+            class="material-icons-round">close</span></button>
+      </div>
+      <div class="modal-body">
+        <div style="text-align:center;margin-bottom:20px;">
+          <div style="font-size:13px;color:var(--text-muted)">Total Pembayaran</div>
+          <div id="pay-total-display" style="font-size:28px;font-weight:800;color:var(--primary)">Rp 0</div>
+        </div>
+
+        <!-- Kasir Selection -->
+        <div class="form-group">
+          <label class="form-label">Kasir yang Melayani</label>
+          <select id="pay-kasir" class="form-control form-select"></select>
+        </div>
+
+        <div class="form-label" style="margin-bottom:8px">Metode Pembayaran</div>
+        <div class="payment-methods">
+          <div class="payment-option selected" data-method="Cash" onclick="selectPayment('Cash',this)">
+            <span class="material-icons-round">payments</span> Cash
+          </div>
+          <div class="payment-option" data-method="QRIS" onclick="selectPayment('QRIS',this)">
+            <span class="material-icons-round">qr_code_2</span> QRIS
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Jumlah Bayar</label>
+          <input type="number" id="pay-amount" class="form-control" placeholder="Masukkan jumlah..."
+            oninput="calcChange()" style="font-size:18px;font-weight:600;">
+        </div>
+        <div
+          style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--bg);border-radius:var(--radius-sm);">
+          <span style="font-weight:500">Kembalian</span>
+          <span id="pay-change" style="font-size:20px;font-weight:800;color:var(--success)">Rp 0</span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('modal-payment')">Batal</button>
+        <button class="btn btn-primary" onclick="processPayment()"><span class="material-icons-round">check</span>
+          Proses Bayar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MODAL: SUCCESS ===== -->
+  <div id="modal-success" class="modal-overlay" onclick="if(event.target===this)closeModal('modal-success')">
+    <div class="modal" style="max-width:400px">
+      <div class="modal-body" id="modal-success-body"></div>
+      <div class="modal-footer" style="justify-content:center;gap:8px;">
+        <button class="btn btn-secondary" onclick="printReceipt()"><span class="material-icons-round">print</span> Cetak
+          Struk</button>
+        <button class="btn btn-primary" onclick="closeModal('modal-success')">Selesai</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MODAL: PRODUK ===== -->
+  <div id="modal-produk" class="modal-overlay" onclick="if(event.target===this)closeModal('modal-produk')">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title" id="produk-form-title">Tambah Produk</h3>
+        <button class="modal-close" onclick="closeModal('modal-produk')"><span
+            class="material-icons-round">close</span></button>
+      </div>
+      <div class="modal-body">
+        <form id="produk-form" onsubmit="event.preventDefault();saveProduk()">
+          <input type="hidden" id="produk-id-edit">
+          <div class="form-group">
+            <label class="form-label">Nama Produk *</label>
+            <input type="text" id="produk-nama" class="form-control" required placeholder="Contoh: Classic Beef Burger">
+          </div>
+          <div class="grid-2col" style="gap:12px">
+            <div class="form-group">
+              <label class="form-label">Kategori *</label>
+              <select id="produk-kategori" class="form-control form-select" required>
+                <option value="">Pilih kategori...</option>
+                <!-- Diisi dinamis oleh JS dari data produk -->
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Harga (Rp) *</label>
+              <input type="number" id="produk-harga" class="form-control" required min="0" placeholder="35000">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Stok Awal</label>
+            <input type="number" id="produk-stok" class="form-control" min="0" value="0" placeholder="0">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Deskripsi</label>
+            <textarea id="produk-deskripsi" class="form-control" rows="2"
+              placeholder="Deskripsi singkat produk..."></textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">URL Gambar</label>
+            <input type="url" id="produk-gambar" class="form-control" placeholder="https://... atau Google Drive link">
+            <small style="color:var(--text-muted);font-size:11px;">Gunakan URL gambar online atau Google Drive (format:
+              https://drive.google.com/uc?id=FILE_ID)</small>
+          </div>
+          <div class="form-group" id="produk-status-group" style="display:none;">
+            <label class="form-label">Status Produk</label>
+            <select id="produk-status" class="form-control form-select">
+              <option value="Aktif">✅ Aktif — Tampil di kasir</option>
+              <option value="Nonaktif">❌ Nonaktif — Disembunyikan dari kasir</option>
+            </select>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('modal-produk')">Batal</button>
+        <button class="btn btn-primary" onclick="saveProduk()"><span class="material-icons-round">save</span>
+          Simpan</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MODAL: KASIR ===== -->
+  <div id="modal-kasir" class="modal-overlay" onclick="if(event.target===this)closeModal('modal-kasir')">
+    <div class="modal" style="max-width:400px">
+      <div class="modal-header">
+        <h3 class="modal-title" id="kasir-form-title">Tambah Kasir</h3>
+        <button class="modal-close" onclick="closeModal('modal-kasir')"><span
+            class="material-icons-round">close</span></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="kasir-id-edit">
+        <div class="form-group">
+          <label class="form-label">Nama Kasir *</label>
+          <input type="text" id="kasir-nama-input" class="form-control" required placeholder="Nama kasir...">
+        </div>
+        <div class="form-group">
+          <label class="form-label">PIN (min. 4 digit) *</label>
+          <input type="text" id="kasir-pin-input" class="form-control" required placeholder="1234" maxlength="6">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Role</label>
+          <select id="kasir-role-input" class="form-control form-select">
+            <option value="Kasir">Kasir</option>
+            <option value="Admin">Admin</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('modal-kasir')">Batal</button>
+        <button class="btn btn-primary" onclick="saveKasir()"><span class="material-icons-round">save</span>
+          Simpan</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MODAL: DETAIL TRANSAKSI ===== -->
+  <div id="modal-detail-trx" class="modal-overlay" onclick="if(event.target===this)closeModal('modal-detail-trx')">
+    <div class="modal" style="max-width:600px">
+      <div class="modal-header">
+        <h3 class="modal-title">
+          <span class="material-icons-round"
+            style="font-size:20px;vertical-align:middle;color:var(--primary)">receipt_long</span>
+          Detail Transaksi
+        </h3>
+        <button class="modal-close" onclick="closeModal('modal-detail-trx')"><span
+            class="material-icons-round">close</span></button>
+      </div>
+      <div class="modal-body" id="modal-detail-trx-body" style="padding:16px 24px 24px;">
+        <div style="text-align:center;padding:30px;color:var(--text-muted)">Memuat detail...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hidden: Thermal Receipt Print Container -->
+  <div id="receipt-print-area" style="display:none;"></div>
+
+  <?!= include('JavaScript') ?>
+
+</body>
+
+</html>

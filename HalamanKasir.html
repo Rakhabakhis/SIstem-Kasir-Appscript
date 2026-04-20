@@ -1,0 +1,116 @@
+<!-- =====================================================
+     HALAMAN KASIR - POS Page
+     ===================================================== -->
+
+<!-- Header -->
+<div class="page-header">
+  <div class="page-title-row">
+    <button class="mobile-toggle" onclick="toggleSidebar()">
+      <span class="material-icons-round">menu</span>
+    </button>
+    <h1 class="page-title">Pesanan Baru</h1>
+    <span class="badge badge-primary">Shift Aktif</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <span class="material-icons-round" style="font-size:18px;color:var(--text-muted)">calendar_today</span>
+    <span id="current-date" style="font-size:13px;color:var(--text-secondary)"></span>
+  </div>
+</div>
+
+<div class="pos-layout">
+  <!-- Products Section -->
+  <div class="pos-products">
+    <!-- Category Tabs + View Toggle -->
+    <div class="cat-toolbar">
+      <div class="category-tabs" id="category-tabs-container">
+        <button class="cat-tab active" onclick="filterByKategori('Semua Produk', this)">Semua Produk</button>
+        <!-- Dynamic tabs rendered by JS -->
+      </div>
+      <!-- View Toggle -->
+      <div class="view-toggle">
+        <button class="view-btn active" id="btn-view-grid" onclick="setViewMode('grid')" title="Tampilan Grid">
+          <span class="material-icons-round">grid_view</span>
+        </button>
+        <button class="view-btn" id="btn-view-list" onclick="setViewMode('list')" title="Tampilan List">
+          <span class="material-icons-round">format_list_bulleted</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Search (mobile) -->
+    <div style="padding:0 24px 12px;display:none" class="mobile-search">
+      <div class="search-bar" style="max-width:100%">
+        <span class="material-icons-round">search</span>
+        <input type="text" id="search-product" placeholder="Cari produk..." oninput="searchProducts()">
+      </div>
+    </div>
+
+    <!-- Product Grid/List -->
+    <div class="section-title" style="padding:0 24px 8px;color:var(--text-secondary)">Produk Populer</div>
+    <div class="product-grid" id="product-grid">
+      <!-- Products rendered by JS -->
+    </div>
+  </div>
+
+  <!-- Order Panel (Right Sidebar) -->
+  <div class="pos-order-panel" id="order-panel">
+    <div class="order-header">
+      <span class="order-title">Pesanan Saat Ini</span>
+      <div style="display:flex;gap:4px;align-items:center">
+        <button class="btn-icon" onclick="clearCart()" title="Kosongkan">
+          <span class="material-icons-round">delete_sweep</span>
+        </button>
+        <!-- Close button: only visible on mobile -->
+        <button class="btn-icon mobile-close-cart" onclick="closeOrderPanel()" title="Tutup Keranjang"
+          style="display:none">
+          <span class="material-icons-round">close</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="order-customer">
+      <input type="text" id="input-customer" class="form-control" placeholder="Nama Pelanggan (Opsional)"
+        style="text-align:center;border-style:dashed;">
+    </div>
+
+    <!-- Order Items -->
+    <div class="order-items" id="order-items-container">
+      <div id="order-items-list"></div>
+      <div id="order-empty" class="order-empty">
+        <span class="material-icons-round">shopping_cart</span>
+        <p>Keranjang kosong</p>
+        <small style="color:var(--text-muted)">Klik produk untuk menambahkan</small>
+      </div>
+    </div>
+
+    <!-- Summary -->
+    <div class="order-summary" id="order-summary"></div>
+
+    <!-- Actions -->
+    <div class="order-actions">
+      <button class="btn btn-pay" onclick="openPaymentModal()">
+        <span class="material-icons-round">payments</span> Bayar Sekarang
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Overlay untuk close keranjang saat tap luar (mobile) -->
+<div class="order-panel-overlay" id="order-panel-overlay" onclick="closeOrderPanel()"></div>
+
+<!-- FAB: buka keranjang di mobile -->
+<button class="mobile-order-toggle" id="mobile-order-toggle" onclick="toggleOrderPanel()" title="Lihat Keranjang">
+  <span class="material-icons-round">shopping_cart</span>
+  <span class="mobile-cart-badge" id="mobile-cart-badge" style="display:none">0</span>
+</button>
+
+<script>
+  // Set current date
+  (function () {
+    var now = new Date();
+    var days = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+    var months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'];
+    var el = document.getElementById('current-date');
+    if (el) el.textContent = days[now.getDay()] + ', ' + now.getDate() + ' ' + months[now.getMonth()] + ' ' + now.getFullYear();
+  })();
+</script>

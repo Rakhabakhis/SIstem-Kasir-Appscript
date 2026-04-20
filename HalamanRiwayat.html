@@ -1,0 +1,130 @@
+<!-- =====================================================
+     HALAMAN RIWAYAT TRANSAKSI
+     ===================================================== -->
+
+<div class="page-header">
+  <div class="page-title-row">
+    <button class="mobile-toggle" onclick="toggleSidebar()">
+      <span class="material-icons-round">menu</span>
+    </button>
+    <h1 class="page-title">Riwayat Transaksi</h1>
+  </div>
+  <div class="filter-row">
+    <div class="search-bar" style="max-width:220px">
+      <span class="material-icons-round">search</span>
+      <input type="text" id="riwayat-search" placeholder="Cari ID / kasir..." oninput="filterRiwayat()">
+    </div>
+    <select id="riwayat-filter-status" class="form-control form-select" style="width:auto" onchange="filterRiwayat()">
+      <option value="">Semua Status</option>
+      <option value="Selesai">Selesai</option>
+      <option value="Dibatalkan">Dibatalkan</option>
+    </select>
+
+    <!-- Date Filter Icon + Popover -->
+    <div class="date-filter-wrapper">
+      <button class="btn btn-sm btn-secondary date-filter-toggle" id="btn-date-filter" onclick="toggleDateFilter()" title="Filter Tanggal">
+        <span class="material-icons-round" style="font-size:16px">calendar_month</span>
+        <span id="date-filter-label" style="font-size:12px">30 Hari</span>
+        <span class="material-icons-round" style="font-size:14px">arrow_drop_down</span>
+      </button>
+      <div class="date-filter-popover" id="date-filter-popover">
+        <div class="date-preset-list">
+          <button class="date-preset-item active" onclick="setRiwayatPreset('hari-ini')">
+            <span class="material-icons-round">today</span> Hari Ini
+          </button>
+          <button class="date-preset-item" onclick="setRiwayatPreset('7-hari')">
+            <span class="material-icons-round">date_range</span> 7 Hari Terakhir
+          </button>
+          <button class="date-preset-item" onclick="setRiwayatPreset('30-hari')">
+            <span class="material-icons-round">calendar_month</span> 30 Hari Terakhir
+          </button>
+          <button class="date-preset-item" onclick="setRiwayatPreset('bulan-ini')">
+            <span class="material-icons-round">event_note</span> Bulan Ini
+          </button>
+          <button class="date-preset-item" onclick="setRiwayatPreset('semua')">
+            <span class="material-icons-round">all_inclusive</span> Semua
+          </button>
+        </div>
+        <div class="date-filter-divider"></div>
+        <div class="date-filter-custom">
+          <label class="form-label" style="font-size:11px;margin-bottom:4px;">Pilih Tanggal Spesifik</label>
+          <input type="date" id="riwayat-filter-tanggal" class="form-control" style="font-size:12px;padding:6px 10px;" onchange="setRiwayatPreset('custom')">
+        </div>
+      </div>
+    </div>
+
+    <button class="btn btn-sm btn-secondary" onclick="loadRiwayat()">
+      <span class="material-icons-round" style="font-size:14px">refresh</span> Refresh
+    </button>
+  </div>
+</div>
+
+<div class="page-body">
+  <!-- Summary Cards -->
+  <div class="stats-grid" style="padding:0 0 20px">
+    <div class="stat-card">
+      <div class="stat-icon primary"><span class="material-icons-round">receipt_long</span></div>
+      <div class="stat-value" id="riwayat-stat-total">0</div>
+      <div class="stat-label">Total Transaksi</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon success"><span class="material-icons-round">check_circle</span></div>
+      <div class="stat-value" id="riwayat-stat-selesai">0</div>
+      <div class="stat-label">Selesai</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon danger"><span class="material-icons-round">cancel</span></div>
+      <div class="stat-value" id="riwayat-stat-batal">0</div>
+      <div class="stat-label">Dibatalkan</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon warning"><span class="material-icons-round">trending_up</span></div>
+      <div class="stat-value" id="riwayat-stat-omzet" style="font-size:16px">Rp 0</div>
+      <div class="stat-label">Total Omzet</div>
+    </div>
+  </div>
+
+  <!-- Transaction Table -->
+  <div class="card">
+    <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;">
+      <h3 style="font-weight:700;font-size:15px">
+        <span class="material-icons-round" style="font-size:18px;vertical-align:middle;color:var(--primary)">history</span>
+        Daftar Transaksi
+      </h3>
+      <span id="riwayat-count" style="font-size:12px;color:var(--text-muted)"></span>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>ID Transaksi</th>
+            <th>Waktu</th>
+            <th>Pelanggan</th>
+            <th>Item</th>
+            <th>Total</th>
+            <th>Pembayaran</th>
+            <th>Kasir</th>
+            <th>Status</th>
+            <th style="width:90px">Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="riwayat-tbody">
+          <tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-muted)">Memuat...</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <!-- Pagination -->
+    <div class="pagination-bar" id="riwayat-pagination">
+      <div class="pagination-info" id="riwayat-page-info">Halaman 1</div>
+      <div class="pagination-actions">
+        <button class="btn btn-sm btn-secondary" id="riwayat-prev" onclick="riwayatPrevPage()" disabled>
+          <span class="material-icons-round" style="font-size:16px">chevron_left</span> Sebelumnya
+        </button>
+        <span class="pagination-current" id="riwayat-page-num">1</span>
+        <button class="btn btn-sm btn-secondary" id="riwayat-next" onclick="riwayatNextPage()">
+          Berikutnya <span class="material-icons-round" style="font-size:16px">chevron_right</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

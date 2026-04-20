@@ -1,0 +1,186 @@
+<!-- =====================================================
+     HALAMAN LAPORAN - Transaction Reports Page
+     ===================================================== -->
+
+<div class="page-header">
+  <div class="page-title-row">
+    <button class="mobile-toggle" onclick="toggleSidebar()">
+      <span class="material-icons-round">menu</span>
+    </button>
+    <h1 class="page-title">Laporan Penjualan</h1>
+  </div>
+  <div class="filter-row">
+    <input type="date" id="laporan-tanggal" class="form-control" style="width:auto" onchange="loadLaporan()">
+    <button class="btn btn-sm btn-secondary" onclick="loadLaporan()">
+      <span class="material-icons-round" style="font-size:14px">refresh</span> Refresh
+    </button>
+  </div>
+</div>
+
+<div class="page-body">
+  <!-- Period Tabs -->
+  <div class="tab-nav">
+    <button class="tab-btn active" data-periode="harian" onclick="switchLaporanPeriode('harian')">📅 Harian</button>
+    <button class="tab-btn" data-periode="mingguan" onclick="switchLaporanPeriode('mingguan')">📆 Mingguan</button>
+    <button class="tab-btn" data-periode="bulanan" onclick="switchLaporanPeriode('bulanan')">🗓️ Bulanan</button>
+  </div>
+
+  <!-- Stats Cards -->
+  <div class="stats-grid" style="padding:0 0 24px">
+    <div class="stat-card">
+      <div class="stat-icon primary"><span class="material-icons-round">receipt_long</span></div>
+      <div class="stat-value" id="stat-total-trx">0</div>
+      <div class="stat-label">Total Transaksi</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon success"><span class="material-icons-round">trending_up</span></div>
+      <div class="stat-value" id="stat-pendapatan" style="color:var(--primary)">Rp 0</div>
+      <div class="stat-label">Total Pendapatan</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon warning"><span class="material-icons-round">analytics</span></div>
+      <div class="stat-value" id="stat-rata">Rp 0</div>
+      <div class="stat-label">Rata-rata / Transaksi</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon info"><span class="material-icons-round">account_balance_wallet</span></div>
+      <div class="stat-value" id="stat-pajak">Rp 0</div>
+      <div class="stat-label">Total Pajak</div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px">
+    <!-- Payment Breakdown -->
+    <div class="card">
+      <div class="card-header">
+        <h3 style="font-weight:700;font-size:15px">
+          <span class="material-icons-round" style="font-size:18px;vertical-align:middle;color:var(--primary)">pie_chart</span>
+          Berdasarkan Pembayaran
+        </h3>
+      </div>
+      <div class="card-body" id="payment-breakdown">
+        <p style="color:var(--text-muted);text-align:center">Memuat...</p>
+      </div>
+    </div>
+
+    <!-- Quick Info -->
+    <div class="card">
+      <div class="card-header">
+        <h3 style="font-weight:700;font-size:15px">
+          <span class="material-icons-round" style="font-size:18px;vertical-align:middle;color:var(--primary)">info</span>
+          Informasi
+        </h3>
+      </div>
+      <div class="card-body">
+        <div style="font-size:13px;color:var(--text-secondary);line-height:2">
+          <p>💡 Pilih tanggal dan periode untuk melihat laporan.</p>
+          <p>📊 Data menampilkan transaksi yang <strong>Selesai</strong> saja.</p>
+          <p>🧾 Transaksi yang <strong>Dibatalkan</strong> tidak dihitung.</p>
+          <p>📱 Scroll ke bawah untuk melihat detail transaksi.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== LAPORAN ITEM TERJUAL ==================== -->
+  <div class="card" style="margin-bottom:24px">
+    <div class="card-header" style="flex-wrap:wrap;gap:12px;">
+      <h3 style="font-weight:700;font-size:15px;">
+        <span class="material-icons-round" style="font-size:18px;vertical-align:middle;color:var(--primary)">shopping_bag</span>
+        Laporan Item Terjual
+      </h3>
+      <div class="filter-row" style="gap:8px;">
+        <select id="item-filter-kategori" class="form-control form-select" style="width:auto;min-width:130px;font-size:12px;padding:6px 28px 6px 10px;" onchange="loadLaporanItem()">
+          <option value="">Semua Kategori</option>
+        </select>
+        <div class="item-periode-tabs">
+          <button class="item-tab active" data-item-periode="7hari" onclick="switchItemPeriode('7hari', this)">7 Hari</button>
+          <button class="item-tab" data-item-periode="1bulan" onclick="switchItemPeriode('1bulan', this)">1 Bulan</button>
+          <button class="item-tab" data-item-periode="3bulan" onclick="switchItemPeriode('3bulan', this)">3 Bulan</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Item Stats Mini -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:16px 20px;border-bottom:1px solid var(--border);">
+      <div class="item-stat-mini">
+        <span class="material-icons-round" style="color:var(--primary);font-size:20px;">category</span>
+        <div>
+          <div class="item-stat-val" id="item-stat-jenis">0</div>
+          <div class="item-stat-lbl">Jenis Produk</div>
+        </div>
+      </div>
+      <div class="item-stat-mini">
+        <span class="material-icons-round" style="color:var(--success);font-size:20px;">inventory</span>
+        <div>
+          <div class="item-stat-val" id="item-stat-terjual">0</div>
+          <div class="item-stat-lbl">Item Terjual</div>
+        </div>
+      </div>
+      <div class="item-stat-mini">
+        <span class="material-icons-round" style="color:var(--warning);font-size:20px;">payments</span>
+        <div>
+          <div class="item-stat-val" id="item-stat-pendapatan" style="font-size:14px;">Rp 0</div>
+          <div class="item-stat-lbl">Pendapatan</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Item Table -->
+    <div style="overflow-x:auto">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th style="width:40px">#</th>
+            <th>Nama Produk</th>
+            <th>Kategori</th>
+            <th style="text-align:center">Qty Terjual</th>
+            <th style="text-align:right">Pendapatan</th>
+          </tr>
+        </thead>
+        <tbody id="item-terjual-tbody">
+          <tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-muted)">Memuat data item...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Transaction Table -->
+  <div class="card">
+    <div class="card-header">
+      <h3 style="font-weight:700;font-size:15px">
+        <span class="material-icons-round" style="font-size:18px;vertical-align:middle;color:var(--primary)">list_alt</span>
+        Detail Transaksi
+      </h3>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>ID Transaksi</th>
+            <th>Waktu</th>
+            <th>Item</th>
+            <th>Total</th>
+            <th>Pembayaran</th>
+            <th>Status</th>
+            <th style="width:60px">Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="laporan-tbody">
+          <tr><td colspan="7" style="text-align:center;padding:20px;color:var(--text-muted)">Pilih periode dan tanggal</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+// Set default date to today
+(function(){
+  var el = document.getElementById('laporan-tanggal');
+  if (el) {
+    var now = new Date();
+    el.value = now.getFullYear() + '-' + ('0'+(now.getMonth()+1)).slice(-2) + '-' + ('0'+now.getDate()).slice(-2);
+  }
+})();
+</script>
