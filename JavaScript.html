@@ -13,7 +13,17 @@
     kategoriAktif: 'Semua Produk',
     halamanAktif: 'kasir',
     loggedInKasir: null,
-    lastTransaksi: null
+    lastTransaksi: null,
+    bahanBaku: [],
+    grupList: [],
+    resepEditTemp: [],
+    resepPilihan: {},
+    variantPickerState: null,
+    currentPayStep: 'method',
+    selectedPayment: 'Cash',
+    selectedPesananId: null,
+    selectedPesananTotal: 0,
+    selectedBayarPesananMethod: 'Cash'
   };
 
   // ==================== LOGIN ====================
@@ -109,10 +119,20 @@
           APP.settings = res.data.settings;
           APP.kasirList = res.data.kasirList || [];
           APP.kategoriList = res.data.kategori || ['Semua Produk'];
+          APP.bahanBaku = res.data.bahanBaku || [];
+          APP.grupList = res.data.grupList || [];
+          APP.resepPilihan = res.data.resepPilihan || {};
+          var pendingCount = res.data.pesananPendingCount || 0;
+          var navBadge = document.getElementById('nav-pesanan-badge');
+          if (navBadge) {
+            navBadge.textContent = pendingCount;
+            navBadge.style.display = pendingCount > 0 ? '' : 'none';
+          }
           renderCategoryTabs(APP.kategoriList);
           renderProdukGrid(APP.produk);
           updateOrderPanel();
           updateSidebarStoreName();
+          populateGrupDatalist();
         } else {
           showToast(res.message, 'error');
         }
@@ -143,9 +163,10 @@
     var navItem = document.querySelector('.nav-item[data-page="' + page + '"]');
     if (navItem) navItem.classList.add('active');
     closeSidebar();
+    if (page === 'pesanan') loadDaftarPesanan();
     if (page === 'produk') loadProdukAdmin();
     if (page === 'kategori') loadKategoriPage();
-    if (page === 'stok') loadStokPage();
+    if (page === 'bahan-baku') loadBahanBakuPage();
     if (page === 'laporan') loadLaporan();
     if (page === 'riwayat') loadRiwayat();
     if (page === 'pengaturan') loadPengaturan();
@@ -209,35 +230,36 @@
     var html = '';
     for (var i = 0; i < products.length; i++) {
       var p = products[i];
-      var stockClass = p.stok <= 5 ? 'low' : '';
-      var stockText = p.stok <= 0 ? 'Habis' : 'Stok: ' + p.stok;
-      var isHabis = p.stok <= 0;
+      var stokTampil = p.stokDariBahan !== undefined ? p.stokDariBahan : 0;
+      var stockClass = stokTampil <= 5 ? 'low' : '';
+      var stockText = stokTampil <= 0 ? 'Habis' : 'Stok: ' + stokTampil;
+      var isHabis = stokTampil <= 0;
       var disabledStyle = isHabis ? 'opacity:0.55;pointer-events:none;' : '';
+      var hasPilihan = APP.resepPilihan[p.id] && APP.resepPilihan[p.id].length > 0;
+      var varianIndicator = hasPilihan ? '<span style="font-size:10px;background:var(--primary-light,#e0f2fe);color:var(--primary);padding:2px 6px;border-radius:8px;margin-left:4px;font-weight:600">Pilih Rasa</span>' : '';
 
       if (APP.viewMode === 'list') {
-        // LIST VIEW: horizontal card
         html += '<div class="product-card" onclick="' + (isHabis ? '' : "addToCart('" + p.id + "')") + '" style="' + disabledStyle + '">' +
           '<img class="product-card-img" src="' + (p.gambar || '') + '" alt="' + p.nama + '" onerror="this.src=\'https://placehold.co/80/e2e8f0/94a3b8?text=-\'">' +
           '<div class="product-card-body">' +
-          '<div class="product-name">' + p.nama + '</div>' +
+          '<div class="product-name">' + p.nama + varianIndicator + '</div>' +
           '<div class="product-desc">' + (p.deskripsi || '') + '</div>' +
           '<div class="product-price-row">' +
           '<span class="product-price">' + fmtRp(p.harga) + '</span>' +
-          '<button class="btn-add-cart" onclick="event.stopPropagation();' + (isHabis ? '' : "addToCart('" + p.id + "')") + '" ' + (isHabis ? 'disabled' : '') + '><span class="material-icons-round">add</span></button>' +
+          '<button class="btn-add-cart" onclick="event.stopPropagation();' + (isHabis ? '' : "addToCart('" + p.id + "')") + '" ' + (isHabis ? 'disabled' : '') + '><span class="material-icons-round">' + (hasPilihan ? 'tune' : 'add') + '</span></button>' +
           '</div></div>' +
           '<div class="stock-badge ' + stockClass + '">' + stockText + '</div>' +
           '</div>';
       } else {
-        // GRID VIEW: default vertical card
         html += '<div class="product-card" onclick="' + (isHabis ? '' : "addToCart('" + p.id + "')") + '" style="' + disabledStyle + '">' +
           '<div class="stock-badge ' + stockClass + '">' + stockText + '</div>' +
           '<img class="product-card-img" src="' + (p.gambar || '') + '" alt="' + p.nama + '" onerror="this.src=\'https://placehold.co/300x200/e2e8f0/94a3b8?text=No+Image\'">' +
           '<div class="product-card-body">' +
           '<div class="product-name">' + p.nama + '</div>' +
-          '<div class="product-desc">' + (p.deskripsi || '') + '</div>' +
+          (hasPilihan ? '<div style="font-size:10px;color:var(--primary);margin-bottom:2px"><span class="material-icons-round" style="font-size:11px;vertical-align:middle">tune</span> Pilih Rasa</div>' : '<div class="product-desc">' + (p.deskripsi || '') + '</div>') +
           '<div class="product-price-row">' +
           '<span class="product-price">' + fmtRp(p.harga) + '</span>' +
-          '<button class="btn-add-cart" onclick="event.stopPropagation();' + (isHabis ? '' : "addToCart('" + p.id + "')") + '" ' + (isHabis ? 'disabled' : '') + '><span class="material-icons-round">add</span></button>' +
+          '<button class="btn-add-cart" onclick="event.stopPropagation();' + (isHabis ? '' : "addToCart('" + p.id + "')") + '" ' + (isHabis ? 'disabled' : '') + '><span class="material-icons-round">' + (hasPilihan ? 'tune' : 'add') + '</span></button>' +
           '</div></div></div>';
       }
     }
@@ -291,30 +313,64 @@
   function addToCart(productId) {
     var product = APP.produk.find(function (p) { return p.id === productId; });
     if (!product) return;
-    if (product.stok <= 0) { showToast('Stok habis!', 'warning'); return; }
-    var cartItem = APP.cart.find(function (c) { return c.id === productId; });
+    var stokEfektif = product.stokDariBahan !== undefined ? product.stokDariBahan : 0;
+    if (stokEfektif <= 0) { showToast('Stok habis!', 'warning'); return; }
+
+    var grupPilihan = APP.resepPilihan[productId];
+    if (grupPilihan && grupPilihan.length > 0) {
+      openVariantPicker(productId);
+      return;
+    }
+    addToCartDirect(productId, []);
+  }
+
+  function addToCartDirect(productId, pilihanVarian) {
+    var product = APP.produk.find(function (p) { return p.id === productId; });
+    if (!product) return;
+    var stokEfektif = product.stokDariBahan !== undefined ? product.stokDariBahan : 0;
+
+    var cartKey = productId;
+    if (pilihanVarian && pilihanVarian.length > 0) {
+      cartKey = productId + '_' + pilihanVarian.map(function (v) { return v.idBahan; }).join('_');
+    }
+
+    var cartItem = APP.cart.find(function (c) { return (c.cartKey || c.id) === cartKey; });
     if (cartItem) {
-      if (cartItem.jumlah >= product.stok) { showToast('Stok tidak cukup', 'warning'); return; }
+      if (cartItem.jumlah >= stokEfektif) { showToast('Stok tidak cukup', 'warning'); return; }
       cartItem.jumlah++;
     } else {
-      APP.cart.push({ id: product.id, nama: product.nama, harga: product.harga, jumlah: 1, gambar: product.gambar, catatan: '' });
+      APP.cart.push({
+        id: product.id,
+        cartKey: cartKey,
+        nama: product.nama,
+        harga: product.harga,
+        jumlah: 1,
+        gambar: product.gambar,
+        catatan: '',
+        pilihanVarian: pilihanVarian || []
+      });
     }
     updateOrderPanel();
-    showToast(product.nama + ' ditambahkan', 'success');
+    var varLabel = pilihanVarian && pilihanVarian.length > 0
+      ? ' (' + pilihanVarian.map(function (v) { return v.namaBahan; }).join(', ') + ')' : '';
+    showToast(product.nama + varLabel + ' ditambahkan', 'success');
   }
 
-  function updateQty(productId, delta) {
-    var cartItem = APP.cart.find(function (c) { return c.id === productId; });
+  function updateQty(cartKey, delta) {
+    var cartItem = APP.cart.find(function (c) { return (c.cartKey || c.id) === cartKey; });
     if (!cartItem) return;
-    var product = APP.produk.find(function (p) { return p.id === productId; });
+    var product = APP.produk.find(function (p) { return p.id === cartItem.id; });
     cartItem.jumlah += delta;
-    if (cartItem.jumlah <= 0) { removeFromCart(productId); return; }
-    if (product && cartItem.jumlah > product.stok) { cartItem.jumlah = product.stok; showToast('Maksimum stok: ' + product.stok, 'warning'); }
+    if (cartItem.jumlah <= 0) { removeFromCart(cartKey); return; }
+    if (product) {
+      var stokEfektif = product.stokDariBahan !== undefined ? product.stokDariBahan : 0;
+      if (cartItem.jumlah > stokEfektif) { cartItem.jumlah = stokEfektif; showToast('Maksimum stok: ' + stokEfektif, 'warning'); }
+    }
     updateOrderPanel();
   }
 
-  function removeFromCart(productId) {
-    APP.cart = APP.cart.filter(function (c) { return c.id !== productId; });
+  function removeFromCart(cartKey) {
+    APP.cart = APP.cart.filter(function (c) { return (c.cartKey || c.id) !== cartKey; });
     updateOrderPanel();
   }
 
@@ -357,19 +413,37 @@
     var subtotal = 0;
     for (var i = 0; i < APP.cart.length; i++) {
       var item = APP.cart[i];
+      var ck = item.cartKey || item.id;
       var itemTotal = item.harga * item.jumlah;
       subtotal += itemTotal;
+      var varianChip = '';
+      if (item.pilihanVarian && item.pilihanVarian.length > 0) {
+        varianChip = '<div style="margin-top:2px;display:flex;flex-wrap:wrap;gap:3px;">' +
+          item.pilihanVarian.map(function (v) {
+            return '<span style="font-size:10px;background:var(--primary-light,#e0f2fe);color:var(--primary);padding:1px 6px;border-radius:8px;font-weight:600">' + v.namaBahan + '</span>';
+          }).join('') + '</div>';
+      }
+      var catatanDisplay = item.catatan
+        ? '<span class="catatan-text" onclick="toggleCatatan(\'' + ck + '\')" title="Klik untuk edit">' + item.catatan + '</span>'
+        : '<span class="add-catatan-link" onclick="toggleCatatan(\'' + ck + '\')">Tambahkan catatan</span>';
+
       html += '<div class="order-item">' +
         '<img class="order-item-img" src="' + (item.gambar || '') + '" onerror="this.src=\'https://placehold.co/80/e2e8f0/94a3b8?text=-\'">' +
         '<div class="order-item-info">' +
         '<div class="order-item-name">' + item.nama + '</div>' +
+        varianChip +
         '<div class="order-item-price">' + fmtRp(item.harga) + '</div>' +
         '<div class="order-item-actions">' +
-        '<button class="qty-btn" onclick="updateQty(\'' + item.id + '\',-1)">−</button>' +
+        '<button class="qty-btn" onclick="updateQty(\'' + ck + '\',-1)">−</button>' +
         '<span class="qty-value">' + item.jumlah + '</span>' +
-        '<button class="qty-btn" onclick="updateQty(\'' + item.id + '\',1)">+</button>' +
-        '</div></div>' +
-        '<span class="material-icons-round order-item-delete" onclick="removeFromCart(\'' + item.id + '\')">delete</span>' +
+        '<button class="qty-btn" onclick="updateQty(\'' + ck + '\',1)">+</button>' +
+        '</div>' +
+        '<div class="item-catatan-row">' + catatanDisplay +
+        '<input type="text" id="catatan-' + ck + '" class="catatan-input" value="' + (item.catatan || '').replace(/"/g, '&quot;') + '" placeholder="Catatan untuk item ini..." style="display:none" ' +
+        'onblur="saveCatatan(\'' + ck + '\',this.value)" onkeydown="if(event.key===\'Enter\'){saveCatatan(\'' + ck + '\',this.value);this.blur();}">' +
+        '</div>' +
+        '</div>' +
+        '<span class="material-icons-round order-item-delete" onclick="removeFromCart(\'' + ck + '\')">delete</span>' +
         '</div>';
     }
     container.innerHTML = html;
@@ -423,34 +497,104 @@
   }
 
   // ==================== PAYMENT ====================
-  function openPaymentModal() {
+  function startCheckout(method) {
     if (APP.cart.length === 0) { showToast('Keranjang kosong', 'warning'); return; }
     var totals = getCartTotal();
     document.getElementById('pay-total-display').textContent = fmtRp(totals.total);
-    document.getElementById('pay-amount').value = '';
-    document.getElementById('pay-change').textContent = fmtRp(0);
-    document.querySelectorAll('.payment-option').forEach(function (o) { o.classList.remove('selected'); });
-    document.querySelector('.payment-option[data-method="Cash"]').classList.add('selected');
-    APP.selectedPayment = 'Cash';
-
-    // Populate kasir dropdown
-    var kasirSel = document.getElementById('pay-kasir');
-    if (kasirSel) {
-      var opts = '';
-      var aktif = APP.kasirList.filter(function (k) { return k.status === 'Aktif'; });
-      for (var i = 0; i < aktif.length; i++) {
-        var sel = (APP.loggedInKasir && aktif[i].nama === APP.loggedInKasir.nama) ? ' selected' : '';
-        opts += '<option value="' + aktif[i].nama + '"' + sel + '>' + aktif[i].nama + '</option>';
-      }
-      kasirSel.innerHTML = opts;
-    }
-
+    var stepMap = { 'bayar-langsung': 'bayar', 'buat-pesanan': 'buat', 'gabungkan-pesanan': 'gabungkan' };
+    goToPaymentStep(stepMap[method] || 'bayar');
     showModal('modal-payment');
+  }
+
+  function openPaymentModal() {
+    // Backward compatibility: default langsung ke Bayar Langsung
+    startCheckout('bayar-langsung');
+  }
+
+  function goToPaymentStep(step) {
+    var steps = ['method', 'bayar', 'buat', 'gabungkan'];
+    steps.forEach(function(s) {
+      var el = document.getElementById('pay-step-' + s);
+      if (el) el.style.display = 'none';
+    });
+    var closeBtn = document.getElementById('pay-btn-close');
+    var kembaliBtn = document.getElementById('pay-btn-kembali');
+    var bayarBtn = document.getElementById('pay-btn-bayar');
+    var buatBtn = document.getElementById('pay-btn-buat');
+    if (closeBtn) closeBtn.style.display = '';
+    if (kembaliBtn) kembaliBtn.style.display = 'none';
+    if (bayarBtn) bayarBtn.style.display = 'none';
+    if (buatBtn) buatBtn.style.display = 'none';
+
+    var titleEl = document.getElementById('pay-modal-title');
+
+    if (step === 'method') {
+      document.getElementById('pay-step-method').style.display = '';
+      if (titleEl) titleEl.textContent = 'Checkout';
+      // Reset checkout method card selections
+      document.querySelectorAll('.checkout-method-card').forEach(function(c) { c.classList.remove('selected'); });
+
+    } else if (step === 'bayar') {
+      document.getElementById('pay-step-bayar').style.display = '';
+      if (titleEl) titleEl.textContent = 'Bayar Langsung';
+      if (closeBtn) closeBtn.style.display = 'none';
+      if (kembaliBtn) kembaliBtn.style.display = '';
+      if (bayarBtn) bayarBtn.style.display = '';
+      // Reset
+      document.getElementById('pay-amount').value = '';
+      document.getElementById('pay-change').textContent = fmtRp(0);
+      document.querySelectorAll('#pay-step-bayar .payment-option').forEach(function(o) { o.classList.remove('selected'); });
+      var cashOpt = document.querySelector('#pay-step-bayar .payment-option[data-method="Cash"]');
+      if (cashOpt) cashOpt.classList.add('selected');
+      APP.selectedPayment = 'Cash';
+      _populateKasirSelect('pay-kasir');
+
+    } else if (step === 'buat') {
+      document.getElementById('pay-step-buat').style.display = '';
+      if (titleEl) titleEl.textContent = 'Buat Pesanan';
+      if (closeBtn) closeBtn.style.display = 'none';
+      if (kembaliBtn) kembaliBtn.style.display = '';
+      if (buatBtn) buatBtn.style.display = '';
+      var namaEl = document.getElementById('pay-nama-pelanggan');
+      if (namaEl) namaEl.value = '';
+      _populateKasirSelect('pay-kasir-pesanan');
+
+    } else if (step === 'gabungkan') {
+      document.getElementById('pay-step-gabungkan').style.display = '';
+      if (titleEl) titleEl.textContent = 'Gabungkan Pesanan';
+      if (closeBtn) closeBtn.style.display = 'none';
+      if (kembaliBtn) kembaliBtn.style.display = '';
+      loadGabungkanList();
+    }
+    APP.currentPayStep = step;
+  }
+
+  function _populateKasirSelect(selectId) {
+    var sel = document.getElementById(selectId);
+    if (!sel) return;
+    var opts = '';
+    var aktif = APP.kasirList.filter(function(k) { return k.status === 'Aktif'; });
+    for (var i = 0; i < aktif.length; i++) {
+      var selected = (APP.loggedInKasir && aktif[i].nama === APP.loggedInKasir.nama) ? ' selected' : '';
+      opts += '<option value="' + aktif[i].nama + '"' + selected + '>' + aktif[i].nama + '</option>';
+    }
+    sel.innerHTML = opts;
+  }
+
+  function selectCheckoutMethod(method) {
+    document.querySelectorAll('.checkout-method-card').forEach(function(c) { c.classList.remove('selected'); });
+    event.currentTarget.classList.add('selected');
+    var stepMap = { 'bayar-langsung': 'bayar', 'buat-pesanan': 'buat', 'gabungkan-pesanan': 'gabungkan' };
+    setTimeout(function() { goToPaymentStep(stepMap[method]); }, 120);
+  }
+
+  function goBackToMethodSelect() {
+    goToPaymentStep('method');
   }
 
   function selectPayment(method, el) {
     APP.selectedPayment = method;
-    document.querySelectorAll('.payment-option').forEach(function (o) { o.classList.remove('selected'); });
+    document.querySelectorAll('#pay-step-bayar .payment-option').forEach(function(o) { o.classList.remove('selected'); });
     el.classList.add('selected');
     if (method !== 'Cash') {
       var totals = getCartTotal();
@@ -474,14 +618,13 @@
     var totals = getCartTotal();
     var jumlahBayar = Number(document.getElementById('pay-amount').value) || 0;
     if (APP.selectedPayment === 'Cash' && jumlahBayar < totals.total) {
-      showToast('Jumlah pembayaran kurang!', 'error');
-      return;
+      showToast('Jumlah pembayaran kurang!', 'error'); return;
     }
     if (APP.selectedPayment !== 'Cash') jumlahBayar = totals.total;
 
-    var customerEl = document.getElementById('input-customer');
     var kasirSel = document.getElementById('pay-kasir');
     var namaKasir = kasirSel ? kasirSel.value : (APP.loggedInKasir ? APP.loggedInKasir.nama : 'Kasir');
+    var customerEl = document.getElementById('input-customer');
 
     var transaksiData = {
       items: APP.cart,
@@ -495,7 +638,7 @@
 
     showLoading(true);
     google.script.run
-      .withSuccessHandler(function (res) {
+      .withSuccessHandler(function(res) {
         showLoading(false);
         if (res.success) {
           closeModal('modal-payment');
@@ -504,15 +647,13 @@
           showPaymentSuccess(res.data);
           APP.cart = [];
           updateOrderPanel();
-          google.script.run.withSuccessHandler(function (r) {
-            if (r.success) { APP.produk = r.data.produk; APP.kasirList = r.data.kasirList || []; filterByKategori(APP.kategoriAktif); }
-          }).getInitData();
+          _refreshInitData();
           loadRecentTransactions();
         } else {
           showToast(res.message, 'error');
         }
       })
-      .withFailureHandler(function (err) {
+      .withFailureHandler(function(err) {
         showLoading(false);
         showToast('Error: ' + err.message, 'error');
       })
@@ -530,7 +671,381 @@
       '<div class="summary-row"><span>Kembalian</span><span style="color:var(--success);font-weight:700">' + fmtRp(data.kembalian) + '</span></div>' +
       '</div></div>';
     document.getElementById('modal-success-body').innerHTML = html;
+    document.getElementById('modal-success-footer').innerHTML =
+      '<button class="btn btn-secondary" onclick="printReceipt()"><span class="material-icons-round">print</span> Cetak Struk</button>' +
+      '<button class="btn btn-primary" onclick="closeModal(\'modal-success\')">Selesai</button>';
     showModal('modal-success');
+  }
+
+  // ==================== BUAT PESANAN ====================
+  function submitBuatPesanan() {
+    var namaPelanggan = (document.getElementById('pay-nama-pelanggan').value || '').trim();
+    if (!namaPelanggan) { showToast('Nama pelanggan wajib diisi', 'warning'); return; }
+
+    var kasirSel = document.getElementById('pay-kasir-pesanan');
+    var namaKasir = kasirSel ? kasirSel.value : (APP.loggedInKasir ? APP.loggedInKasir.nama : 'Kasir');
+    var totals = getCartTotal();
+
+    showLoading(true);
+    google.script.run
+      .withSuccessHandler(function(res) {
+        showLoading(false);
+        if (res && res.success) {
+          closeModal('modal-payment');
+          APP.cart = [];
+          updateOrderPanel();
+          showBuatPesananSuccess(res.data);
+          _refreshInitData();
+        } else {
+          showToast(res ? res.message : 'Gagal membuat pesanan', 'error');
+        }
+      })
+      .withFailureHandler(function(err) {
+        showLoading(false);
+        showToast('Error: ' + (err ? err.message : 'Gagal'), 'error');
+      })
+      .buatPesanan({
+        items: APP.cart,
+        namaPelanggan: namaPelanggan,
+        diskon: totals.diskon,
+        namaKasir: namaKasir,
+        catatan: ''
+      });
+  }
+
+  function showBuatPesananSuccess(data) {
+    var itemsHtml = '';
+    for (var i = 0; i < data.items.length; i++) {
+      var item = data.items[i];
+      itemsHtml += '<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:13px;border-bottom:1px solid var(--border-light)">' +
+        '<span>' + item.nama + ' × ' + item.jumlah + '</span>' +
+        '<span style="font-weight:600;white-space:nowrap">' + fmtRp(Number(item.harga) * Number(item.jumlah)) + '</span>' +
+        '</div>';
+    }
+
+    var html = '<div style="text-align:center;margin-bottom:16px">' +
+      '<div class="success-check" style="background:var(--warning)"><span class="material-icons-round">receipt_long</span></div>' +
+      '<h3 style="margin-bottom:4px">Pesanan Berhasil Ditambahkan</h3>' +
+      '</div>' +
+      '<div class="pesanan-success-card">' +
+      '<div style="margin-bottom:8px"><span class="badge badge-warning">Pesanan Diproses</span></div>' +
+      '<div style="font-weight:700;font-size:15px;margin-bottom:2px">' + data.namaPelanggan + '</div>' +
+      '<div style="color:var(--primary);font-size:12px;font-weight:600;margin-bottom:6px">No. ' + data.idPesanan + '</div>' +
+      '<div style="font-size:11px;color:var(--text-muted);margin-bottom:12px">' + data.tanggal + '</div>' +
+      '<div style="border-top:1px solid var(--border);padding-top:10px">' + itemsHtml + '</div>' +
+      '<div style="border-top:1px solid var(--border);margin-top:8px;padding-top:10px">' +
+      '<div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0"><span>Total Pesanan</span><span style="font-weight:600">' + fmtRp(data.total) + '</span></div>' +
+      '<div style="display:flex;justify-content:space-between;padding:4px 0"><strong>Total</strong><strong style="color:var(--primary);font-size:15px">' + fmtRp(data.total) + '</strong></div>' +
+      '</div>' +
+      '</div>';
+
+    document.getElementById('modal-success-body').innerHTML = html;
+    document.getElementById('modal-success-footer').innerHTML =
+      '<button class="btn btn-secondary" onclick="navigateTo(\'pesanan\');closeModal(\'modal-success\')">' +
+      '<span class="material-icons-round">list_alt</span> Lihat Daftar Pesanan</button>' +
+      '<button class="btn btn-primary" onclick="closeModal(\'modal-success\')">Pesanan Baru</button>';
+    showModal('modal-success');
+  }
+
+  // ==================== GABUNGKAN PESANAN ====================
+  function loadGabungkanList() {
+    var container = document.getElementById('gabungkan-list');
+    if (!container) return;
+    container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted)"><div class="spinner" style="margin:0 auto 10px;width:24px;height:24px;border-width:3px"></div>Memuat...</div>';
+
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (res && res.success) {
+          var list = res.data || [];
+          if (list.length === 0) {
+            container.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-muted)">' +
+              '<span class="material-icons-round" style="font-size:36px;opacity:0.3">receipt_long</span>' +
+              '<p style="margin-top:8px">Tidak ada pesanan aktif.</p>' +
+              '<small>Buat pesanan baru terlebih dahulu.</small></div>';
+            return;
+          }
+          var html = '';
+          for (var i = 0; i < list.length; i++) {
+            var p = list[i];
+            var idSafe = p.id.replace(/'/g, '');
+            html += '<div class="gabungkan-item" onclick="submitGabungkanPesanan(\'' + idSafe + '\')">' +
+              '<div class="gabungkan-item-header">' +
+              '<strong>' + p.namaPelanggan + '</strong>' +
+              '<span class="badge badge-warning" style="font-size:10px">Diproses</span>' +
+              '</div>' +
+              '<div style="font-size:11px;color:var(--primary);font-weight:600;margin:2px 0">' + p.id + '</div>' +
+              '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">' +
+              '<span style="font-size:12px;color:var(--text-muted)">' + p.jumlahItem + ' item · ' + p.tanggal + '</span>' +
+              '<span style="font-weight:700;color:var(--primary)">' + fmtRp(p.total) + '</span>' +
+              '</div>' +
+              '</div>';
+          }
+          container.innerHTML = html;
+        } else {
+          container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--danger)">Gagal memuat: ' + (res ? res.message : 'Error') + '</div>';
+        }
+      })
+      .withFailureHandler(function(err) {
+        container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--danger)">Error: ' + (err ? err.message : 'Gagal') + '</div>';
+      })
+      .getDaftarPesanan();
+  }
+
+  function submitGabungkanPesanan(idPesanan) {
+    if (!confirm('Tambahkan ' + APP.cart.length + ' jenis item ke pesanan ' + idPesanan + '?')) return;
+    var namaKasir = APP.loggedInKasir ? APP.loggedInKasir.nama : 'Kasir';
+
+    showLoading(true);
+    google.script.run
+      .withSuccessHandler(function(res) {
+        showLoading(false);
+        if (res && res.success) {
+          closeModal('modal-payment');
+          APP.cart = [];
+          updateOrderPanel();
+          showToast(res.message, 'success');
+          _refreshInitData();
+        } else {
+          showToast(res ? res.message : 'Gagal menggabungkan', 'error');
+        }
+      })
+      .withFailureHandler(function(err) {
+        showLoading(false);
+        showToast('Error: ' + (err ? err.message : 'Gagal'), 'error');
+      })
+      .gabungkanPesanan(idPesanan, APP.cart, namaKasir);
+  }
+
+  // ==================== DAFTAR PESANAN ====================
+  var _lastDaftarPesananData = [];
+  var _pesananExpandedMap = {};
+
+  function loadDaftarPesanan() {
+    var container = document.getElementById('pesanan-list-container');
+    if (container) container.innerHTML = '<div style="text-align:center;padding:60px 24px;color:var(--text-muted)"><div class="spinner" style="margin:0 auto 12px;width:28px;height:28px;border-width:3px"></div>Memuat pesanan...</div>';
+
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (res && res.success) {
+          _lastDaftarPesananData = res.data || [];
+          renderDaftarPesanan(_lastDaftarPesananData);
+        } else {
+          if (container) container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--danger)">❌ ' + (res ? res.message : 'Error') + '</div>';
+        }
+      })
+      .withFailureHandler(function(err) {
+        if (container) container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--danger)">❌ ' + (err ? err.message : 'Gagal') + '</div>';
+      })
+      .getDaftarPesanan();
+  }
+
+  function togglePesananCard(idPesanan) {
+    _pesananExpandedMap[idPesanan] = !_pesananExpandedMap[idPesanan];
+    renderDaftarPesanan(_lastDaftarPesananData || []);
+  }
+
+  function renderDaftarPesanan(data) {
+    var container = document.getElementById('pesanan-list-container');
+    var countEl = document.getElementById('pesanan-count');
+    if (countEl) countEl.textContent = data.length + ' pesanan';
+
+    // Update nav badge
+    var navBadge = document.getElementById('nav-pesanan-badge');
+    if (navBadge) {
+      navBadge.textContent = data.length;
+      navBadge.style.display = data.length > 0 ? '' : 'none';
+    }
+
+    if (!data || data.length === 0) {
+      container.innerHTML = '<div style="text-align:center;padding:60px 24px;color:var(--text-muted)">' +
+        '<span class="material-icons-round" style="font-size:56px;opacity:0.25">receipt_long</span>' +
+        '<p style="margin-top:12px;font-size:15px;font-weight:500">Tidak ada pesanan aktif</p>' +
+        '<small>Buat pesanan dari halaman Kasir</small></div>';
+      return;
+    }
+
+    var html = '';
+    for (var i = 0; i < data.length; i++) {
+      var p = data[i];
+      var idSafe = p.id.replace(/'/g, '');
+      var isExpanded = !!_pesananExpandedMap[p.id];
+      var itemsHtml = '';
+      for (var j = 0; j < p.items.length; j++) {
+        var item = p.items[j];
+        itemsHtml += '<div class="pesanan-detail-item">' +
+          '<div>' +
+          '<span class="pesanan-detail-nama">' + item.nama + '</span>' +
+          (item.catatan ? '<div class="pesanan-detail-catatan">' + item.catatan + '</div>' : '') +
+          '</div>' +
+          '<div style="text-align:right;white-space:nowrap">' +
+          '<span style="color:var(--text-muted);font-size:12px">' + fmtRp(item.harga) + ' × ' + item.jumlah + '</span> ' +
+          '<strong style="font-size:13px">' + fmtRp(item.subtotal) + '</strong>' +
+          '</div>' +
+          '</div>';
+      }
+
+      html += '<div class="pesanan-card">' +
+        '<div class="pesanan-card-header" onclick="togglePesananCard(\'' + idSafe + '\')">' +
+        '<div style="flex:1;min-width:0;">' +
+        '<span class="badge badge-warning" style="margin-bottom:6px;display:inline-block">Diproses</span>' +
+        '<div class="pesanan-card-nama">' + p.namaPelanggan + '</div>' +
+        '<div class="pesanan-card-meta">No. <span style="color:var(--primary);font-weight:600">' + p.id + '</span></div>' +
+        '<div class="pesanan-card-meta">' + p.tanggal + ' · Kasir: ' + p.kasir + '</div>' +
+        '</div>' +
+        '<div style="text-align:right;display:flex;align-items:center;gap:8px;flex-shrink:0;">' +
+        '<div>' +
+        '<div style="font-size:11px;color:var(--text-muted)">Total</div>' +
+        '<div style="font-size:20px;font-weight:800;color:var(--primary)">' + fmtRp(p.total) + '</div>' +
+        '</div>' +
+        '<span class="material-icons-round pesanan-chevron' + (isExpanded ? ' expanded' : '') + '">expand_more</span>' +
+        '</div>' +
+        '</div>' +
+        '<div class="pesanan-card-body' + (isExpanded ? ' expanded' : '') + '">' +
+        '<div class="pesanan-card-items">' + itemsHtml + '</div>' +
+        '<div class="pesanan-card-summary">' +
+        '<div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0"><span>Total Pesanan</span><span style="font-weight:600">' + fmtRp(p.subtotal) + '</span></div>' +
+        (p.pajak > 0 ? '<div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0"><span>Pajak</span><span>' + fmtRp(p.pajak) + '</span></div>' : '') +
+        (p.diskon > 0 ? '<div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0"><span>Diskon</span><span style="color:var(--danger)">-' + fmtRp(p.diskon) + '</span></div>' : '') +
+        '<div style="display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid var(--border);margin-top:4px"><strong>Total</strong><strong style="color:var(--primary);font-size:15px">' + fmtRp(p.total) + '</strong></div>' +
+        '</div>' +
+        '<div class="pesanan-card-actions">' +
+        '<button class="btn btn-sm" style="border:1px solid var(--danger);color:var(--danger);background:transparent" onclick="batalkanPesananFE(\'' + idSafe + '\')">' +
+        '<span class="material-icons-round" style="font-size:14px">cancel</span> Batalkan' +
+        '</button>' +
+        '<button class="btn btn-primary" onclick="openBayarPesananModal(\'' + idSafe + '\',' + p.total + ')">' +
+        '<span class="material-icons-round" style="font-size:14px">payments</span> Proses Pembayaran' +
+        '</button>' +
+        '</div>' +
+        '</div>' +
+        '</div>';
+    }
+    container.innerHTML = html;
+  }
+
+  // ==================== BAYAR PESANAN (dari Daftar Pesanan) ====================
+  function openBayarPesananModal(idPesanan, total) {
+    APP.selectedPesananId = idPesanan;
+    APP.selectedPesananTotal = Number(total);
+    APP.selectedBayarPesananMethod = 'Cash';
+
+    var summaryEl = document.getElementById('bayar-pesanan-summary');
+    if (summaryEl) {
+      summaryEl.innerHTML = '<div style="text-align:center;margin-bottom:16px;padding:12px;background:var(--primary-bg);border-radius:var(--radius-sm)">' +
+        '<div style="font-size:12px;color:var(--text-muted)">Total Pembayaran</div>' +
+        '<div style="font-size:28px;font-weight:800;color:var(--primary)">' + fmtRp(total) + '</div>' +
+        '<div style="font-size:11px;color:var(--text-muted);margin-top:2px">No. ' + idPesanan + '</div>' +
+        '</div>';
+    }
+
+    document.querySelectorAll('#modal-bayar-pesanan .payment-option').forEach(function(o) { o.classList.remove('selected'); });
+    var cashOpt = document.querySelector('#modal-bayar-pesanan .payment-option[data-method="Cash"]');
+    if (cashOpt) cashOpt.classList.add('selected');
+
+    _populateKasirSelect('bayar-pesanan-kasir');
+    document.getElementById('bayar-pesanan-amount').value = '';
+    document.getElementById('bayar-pesanan-change').textContent = fmtRp(0);
+    document.getElementById('bayar-pesanan-change').style.color = 'var(--success)';
+
+    showModal('modal-bayar-pesanan');
+  }
+
+  function selectBayarPesananMethod(method, el) {
+    APP.selectedBayarPesananMethod = method;
+    document.querySelectorAll('#modal-bayar-pesanan .payment-option').forEach(function(o) { o.classList.remove('selected'); });
+    el.classList.add('selected');
+    if (method !== 'Cash') {
+      document.getElementById('bayar-pesanan-amount').value = APP.selectedPesananTotal;
+      calcBayarPesananChange();
+    } else {
+      document.getElementById('bayar-pesanan-amount').value = '';
+      document.getElementById('bayar-pesanan-change').textContent = fmtRp(0);
+    }
+  }
+
+  function calcBayarPesananChange() {
+    var total = APP.selectedPesananTotal || 0;
+    var bayar = Number(document.getElementById('bayar-pesanan-amount').value) || 0;
+    var kembalian = bayar - total;
+    var el = document.getElementById('bayar-pesanan-change');
+    if (el) {
+      el.textContent = fmtRp(Math.max(0, kembalian));
+      el.style.color = kembalian >= 0 ? 'var(--success)' : 'var(--danger)';
+    }
+  }
+
+  function submitBayarPesanan() {
+    var idPesanan = APP.selectedPesananId;
+    var total = APP.selectedPesananTotal;
+    var jenisPembayaran = APP.selectedBayarPesananMethod || 'Cash';
+    var jumlahBayar = Number(document.getElementById('bayar-pesanan-amount').value) || 0;
+
+    if (jenisPembayaran === 'Cash' && jumlahBayar < total) {
+      showToast('Jumlah pembayaran kurang!', 'error'); return;
+    }
+    if (jenisPembayaran !== 'Cash') jumlahBayar = total;
+
+    var kasirSel = document.getElementById('bayar-pesanan-kasir');
+    var namaKasir = kasirSel ? kasirSel.value : (APP.loggedInKasir ? APP.loggedInKasir.nama : 'Kasir');
+
+    showLoading(true);
+    google.script.run
+      .withSuccessHandler(function(res) {
+        showLoading(false);
+        if (res && res.success) {
+          closeModal('modal-bayar-pesanan');
+          APP.lastTransaksi = res.data;
+          APP.lastTransaksi.namaKasir = namaKasir;
+          showPaymentSuccess(res.data);
+          loadDaftarPesanan();
+          _refreshInitData();
+        } else {
+          showToast(res ? res.message : 'Gagal memproses pembayaran', 'error');
+        }
+      })
+      .withFailureHandler(function(err) {
+        showLoading(false);
+        showToast('Error: ' + (err ? err.message : 'Gagal'), 'error');
+      })
+      .prosesPembayaranPesanan(idPesanan, { jenisPembayaran: jenisPembayaran, jumlahBayar: jumlahBayar, namaKasir: namaKasir });
+  }
+
+  function batalkanPesananFE(idPesanan) {
+    if (!confirm('Batalkan pesanan ' + idPesanan + '?\n\nPesanan akan dihapus dari daftar.')) return;
+    showLoading(true);
+    google.script.run
+      .withSuccessHandler(function(res) {
+        showLoading(false);
+        if (res && res.success) {
+          showToast(res.message, 'success');
+          loadDaftarPesanan();
+        } else {
+          showToast(res ? res.message : 'Gagal membatalkan', 'error');
+        }
+      })
+      .withFailureHandler(function(err) {
+        showLoading(false);
+        showToast('Error: ' + (err ? err.message : 'Gagal'), 'error');
+      })
+      .batalkanPesanan(idPesanan);
+  }
+
+  // Helper: refresh produk dan bahan baku setelah transaksi
+  function _refreshInitData() {
+    google.script.run.withSuccessHandler(function(r) {
+      if (r && r.success) {
+        APP.produk = r.data.produk;
+        APP.kasirList = r.data.kasirList || [];
+        APP.bahanBaku = r.data.bahanBaku || [];
+        APP.resepPilihan = r.data.resepPilihan || {};
+        var pendingCount = r.data.pesananPendingCount || 0;
+        var navBadge = document.getElementById('nav-pesanan-badge');
+        if (navBadge) {
+          navBadge.textContent = pendingCount;
+          navBadge.style.display = pendingCount > 0 ? '' : 'none';
+        }
+        filterByKategori(APP.kategoriAktif);
+      }
+    }).getInitData();
   }
 
   // ==================== THERMAL RECEIPT PRINT ====================
@@ -1079,7 +1594,7 @@
         '</td>' +
         '<td>' + p.kategori + '</td>' +
         '<td>' + fmtRp(p.harga) + '</td>' +
-        '<td>' + p.stok + '</td>' +
+        '<td>' + (p.stokDariBahan || 0) + ' porsi</td>' +
         '<td>' +
         '<button onclick="toggleStatusProdukFE(\'' + p.id + '\')" ' +
         'style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600;border:none;cursor:pointer;' + toggleColor + '" ' +
@@ -1105,10 +1620,12 @@
     document.getElementById('produk-form-title').textContent = 'Tambah Produk Baru';
     document.getElementById('produk-form').reset();
     document.getElementById('produk-id-edit').value = '';
-    // Sembunyikan status saat tambah baru (default Aktif)
     var statusGroup = document.getElementById('produk-status-group');
     if (statusGroup) statusGroup.style.display = 'none';
     populateKategoriDropdown('');
+    // Reset resep
+    APP.resepEditTemp = [];
+    renderResepList();
     showModal('modal-produk');
   }
 
@@ -1116,26 +1633,35 @@
     showLoading(true);
     google.script.run
       .withSuccessHandler(function (res) {
-        showLoading(false);
-        if (res.success) {
-          var p = res.data;
-          document.getElementById('produk-form-title').textContent = 'Edit Produk';
-          document.getElementById('produk-id-edit').value = p.id;
-          document.getElementById('produk-nama').value = p.nama;
-          populateKategoriDropdown(p.kategori);
-          document.getElementById('produk-harga').value = p.harga;
-          document.getElementById('produk-stok').value = p.stok;
-          document.getElementById('produk-deskripsi').value = p.deskripsi || '';
-          document.getElementById('produk-gambar').value = p.gambar || '';
-          // Tampilkan dan isi field status
-          var statusGroup = document.getElementById('produk-status-group');
-          var statusSel = document.getElementById('produk-status');
-          if (statusGroup) statusGroup.style.display = 'block';
-          if (statusSel) statusSel.value = p.status || 'Aktif';
-          showModal('modal-produk');
-        } else {
-          showToast(res.message, 'error');
-        }
+        if (!res.success) { showLoading(false); showToast(res.message, 'error'); return; }
+        var p = res.data;
+        // Load resep for this product
+        google.script.run
+          .withSuccessHandler(function (resepRes) {
+            showLoading(false);
+            document.getElementById('produk-form-title').textContent = 'Edit Produk';
+            document.getElementById('produk-id-edit').value = p.id;
+            document.getElementById('produk-nama').value = p.nama;
+            populateKategoriDropdown(p.kategori);
+            document.getElementById('produk-harga').value = p.harga;
+            document.getElementById('produk-deskripsi').value = p.deskripsi || '';
+            document.getElementById('produk-gambar').value = p.gambar || '';
+            var statusGroup = document.getElementById('produk-status-group');
+            var statusSel = document.getElementById('produk-status');
+            if (statusGroup) statusGroup.style.display = 'block';
+            if (statusSel) statusSel.value = p.status || 'Aktif';
+            // Load resep
+            APP.resepEditTemp = (resepRes && resepRes.success) ? (resepRes.data || []) : [];
+            renderResepList();
+            showModal('modal-produk');
+          })
+          .withFailureHandler(function() {
+            showLoading(false);
+            APP.resepEditTemp = [];
+            renderResepList();
+            showModal('modal-produk');
+          })
+          .getResepByProduk(p.id);
       })
       .withFailureHandler(function (e) { showLoading(false); showToast(e.message, 'error'); })
       .getProdukById(id);
@@ -1148,7 +1674,6 @@
       nama: document.getElementById('produk-nama').value,
       kategori: document.getElementById('produk-kategori').value,
       harga: document.getElementById('produk-harga').value,
-      stok: document.getElementById('produk-stok').value,
       deskripsi: document.getElementById('produk-deskripsi').value,
       gambar: document.getElementById('produk-gambar').value,
       status: (id && statusEl) ? statusEl.value : 'Aktif'
@@ -1160,12 +1685,29 @@
     showLoading(true);
     var fn = id ? 'editProduk' : 'tambahProduk';
     if (id) data.id = id;
+    var resepItems = APP.resepEditTemp || [];
     google.script.run
       .withSuccessHandler(function (res) {
-        showLoading(false);
-        closeModal('modal-produk');
-        if (res.success) { showToast(res.message, 'success'); loadProdukAdmin(); refreshMainProduk(); }
-        else showToast(res.message, 'error');
+        if (!res.success) { showLoading(false); showToast(res.message, 'error'); return; }
+        var savedId = res.data ? (res.data.id || id) : id;
+        var namaProduk = data.nama;
+        // Simpan resep setelah produk berhasil disimpan
+        google.script.run
+          .withSuccessHandler(function(resepRes) {
+            showLoading(false);
+            closeModal('modal-produk');
+            showToast(res.message, 'success');
+            loadProdukAdmin();
+            refreshMainProduk();
+          })
+          .withFailureHandler(function() {
+            showLoading(false);
+            closeModal('modal-produk');
+            showToast(res.message + ' (Resep gagal disimpan)', 'warning');
+            loadProdukAdmin();
+            refreshMainProduk();
+          })
+          .saveResepProduk(savedId, namaProduk, resepItems);
       })
       .withFailureHandler(function (e) { showLoading(false); showToast(e.message, 'error'); })
     [fn](data);
@@ -1217,7 +1759,24 @@
         APP.produk = r.data.produk;
         APP.kasirList = r.data.kasirList || [];
         APP.kategoriList = r.data.kategori || ['Semua Produk'];
+        APP.bahanBaku = r.data.bahanBaku || [];
+        APP.grupList = r.data.grupList || [];
+        APP.resepPilihan = r.data.resepPilihan || {};
         renderCategoryTabs(APP.kategoriList);
+        filterByKategori(APP.kategoriAktif);
+        populateGrupDatalist();
+      }
+    }).getInitData();
+  }
+
+  function refreshBahanBakuState() {
+    google.script.run.withSuccessHandler(function(r) {
+      if (r.success) {
+        APP.bahanBaku = r.data.bahanBaku || [];
+        APP.grupList = r.data.grupList || [];
+        APP.produk = r.data.produk;
+        APP.resepPilihan = r.data.resepPilihan || {};
+        populateGrupDatalist();
         filterByKategori(APP.kategoriAktif);
       }
     }).getInitData();
@@ -1360,82 +1919,6 @@
         showToast('Error: ' + (err ? err.message : 'Gagal'), 'error');
       })
       .hapusKategori(cleanName);
-  }
-
-  // ==================== STOK ====================
-  function loadStokPage() {
-    loadProdukSelectStok();
-    loadLogStok();
-  }
-
-  function loadProdukSelectStok() {
-    var sel = document.getElementById('stok-produk-select');
-    if (!sel) return;
-    sel.innerHTML = '<option value="">-- Pilih Produk --</option>';
-    for (var i = 0; i < APP.produk.length; i++) {
-      sel.innerHTML += '<option value="' + APP.produk[i].id + '">' + APP.produk[i].nama + ' (Stok: ' + APP.produk[i].stok + ')</option>';
-    }
-  }
-
-  function submitUpdateStok() {
-    var data = {
-      idProduk: document.getElementById('stok-produk-select').value,
-      jumlah: document.getElementById('stok-jumlah').value,
-      tipe: document.getElementById('stok-tipe').value,
-      keterangan: document.getElementById('stok-keterangan').value
-    };
-    if (!data.idProduk || !data.jumlah || !data.tipe) { showToast('Lengkapi semua field', 'warning'); return; }
-    showLoading(true);
-    google.script.run.withSuccessHandler(function (res) {
-      showLoading(false);
-      if (res.success) { showToast(res.message, 'success'); document.getElementById('stok-form').reset(); refreshMainProduk(); loadProdukSelectStok(); loadLogStok(); }
-      else showToast(res.message, 'error');
-    }).withFailureHandler(function (e) { showLoading(false); showToast(e.message, 'error'); }).updateStok(data);
-  }
-
-  function loadLogStok() {
-    var filter = {};
-    var fp = document.getElementById('log-filter-produk');
-    var ft = document.getElementById('log-filter-tipe');
-    var fd1 = document.getElementById('log-filter-dari');
-    var fd2 = document.getElementById('log-filter-sampai');
-    if (fp && fp.value) filter.idProduk = fp.value;
-    if (ft && ft.value) filter.tipe = ft.value;
-    if (fd1 && fd1.value) filter.tanggalMulai = fd1.value;
-    if (fd2 && fd2.value) filter.tanggalAkhir = fd2.value;
-    filter.limit = 50;
-    google.script.run.withSuccessHandler(function (res) {
-      if (res.success) renderLogStok(res.data);
-    }).getLogStok(filter);
-  }
-
-  function clearLogStokFilter() {
-    var fp = document.getElementById('log-filter-produk');
-    var ft = document.getElementById('log-filter-tipe');
-    var fd1 = document.getElementById('log-filter-dari');
-    var fd2 = document.getElementById('log-filter-sampai');
-    if (fp) fp.value = '';
-    if (ft) ft.value = '';
-    if (fd1) fd1.value = '';
-    if (fd2) fd2.value = '';
-    loadLogStok();
-  }
-
-  function renderLogStok(data) {
-    var tbody = document.getElementById('log-stok-tbody');
-    if (!tbody) return;
-    if (!data || data.length === 0) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--text-muted)">Belum ada log</td></tr>'; return; }
-    var html = '';
-    for (var i = 0; i < data.length; i++) {
-      var l = data[i];
-      var tipeBadge = l.tipe === 'Masuk' ? 'badge-success' : (l.tipe === 'Keluar' ? 'badge-danger' : 'badge-warning');
-      var perubahanStr = l.perubahan > 0 ? '+' + l.perubahan : '' + l.perubahan;
-      html += '<tr><td>' + l.tanggal + '</td><td>' + l.namaProduk + '</td><td>' + l.stokSebelum + '</td>' +
-        '<td><strong style="color:' + (l.perubahan >= 0 ? 'var(--success)' : 'var(--danger)') + '">' + perubahanStr + '</strong></td>' +
-        '<td>' + l.stokSesudah + '</td><td><span class="badge ' + tipeBadge + '">' + l.tipe + '</span></td>' +
-        '<td>' + l.keterangan + '</td><td>' + l.diupdateOleh + '</td></tr>';
-    }
-    tbody.innerHTML = html;
   }
 
   // ==================== LAPORAN ====================
@@ -1851,6 +2334,260 @@
     var m = ('0' + (d.getMonth() + 1)).slice(-2);
     var dd = ('0' + d.getDate()).slice(-2);
     return y + '-' + m + '-' + dd;
+  }
+
+  // ==================== CATATAN ITEM ====================
+  function toggleCatatan(cartKey) {
+    var input = document.getElementById('catatan-' + cartKey);
+    if (!input) return;
+    var isHidden = input.style.display === 'none' || input.style.display === '';
+    if (isHidden) {
+      input.style.display = 'block';
+      input.focus();
+      input.select();
+    } else {
+      input.style.display = 'none';
+    }
+  }
+
+  function saveCatatan(cartKey, val) {
+    var item = APP.cart.find(function(c) { return (c.cartKey || c.id) === cartKey; });
+    if (item) {
+      item.catatan = (val || '').trim();
+      updateOrderPanel();
+    }
+  }
+
+  // ==================== VARIANT PICKER ====================
+  function openVariantPicker(productId) {
+    var grupList = (APP.resepPilihan[productId] || []).slice();
+    APP.variantPickerState = { productId: productId, pending: grupList, selected: [] };
+    renderVariantPickerStep();
+    showModal('modal-variant-picker');
+  }
+
+  function renderVariantPickerStep() {
+    var state = APP.variantPickerState;
+    if (!state || state.pending.length === 0) return;
+    var current = state.pending[0];
+    var grup = current.grupPilihan;
+    var titleEl = document.getElementById('variant-picker-title');
+    var optionsEl = document.getElementById('variant-picker-options');
+    var stepEl = document.getElementById('variant-picker-step');
+    var total = state.selected.length + state.pending.length;
+    var step = state.selected.length + 1;
+    if (titleEl) titleEl.textContent = 'Pilih ' + grup;
+    if (stepEl) stepEl.textContent = total > 1 ? 'Langkah ' + step + ' dari ' + total : '';
+    var allOptions = APP.bahanBaku.filter(function (b) { return b.grup === grup; });
+    if (allOptions.length === 0) {
+      if (optionsEl) optionsEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted)">Tidak ada pilihan tersedia</div>';
+      return;
+    }
+    var html = '';
+    for (var i = 0; i < allOptions.length; i++) {
+      var b = allOptions[i];
+      var isHabis = b.stok <= 0;
+      html += '<button class="variant-option' + (isHabis ? ' variant-option-habis' : '') + '"' +
+        (isHabis ? ' disabled' : ' onclick="selectVariantOption(\'' + b.id + '\',\'' + b.nama.replace(/'/g, '') + '\',\'' + b.satuan.replace(/'/g, '') + '\')"') + '>' +
+        '<span class="variant-option-name">' + b.nama + '</span>' +
+        '<span class="variant-option-stock' + (isHabis ? ' habis' : '') + '">' + (isHabis ? 'Habis' : b.stok + ' ' + b.satuan) + '</span>' +
+        '</button>';
+    }
+    if (optionsEl) optionsEl.innerHTML = html;
+  }
+
+  function selectVariantOption(idBahan, namaBahan, satuan) {
+    var state = APP.variantPickerState;
+    if (!state) return;
+    var current = state.pending.shift();
+    state.selected.push({
+      grupPilihan: current.grupPilihan,
+      idBahan: idBahan,
+      namaBahan: namaBahan,
+      jumlahPerPorsi: current.jumlahPerPorsi,
+      satuan: current.satuan || satuan
+    });
+    if (state.pending.length > 0) {
+      renderVariantPickerStep();
+    } else {
+      closeModal('modal-variant-picker');
+      addToCartDirect(state.productId, state.selected);
+      APP.variantPickerState = null;
+    }
+  }
+
+  // ==================== BAHAN BAKU DATALIST ====================
+  function populateGrupDatalist() {
+    var dl = document.getElementById('bb-grup-list');
+    if (!dl) return;
+    dl.innerHTML = '';
+    (APP.grupList || []).forEach(function(g) {
+      var opt = document.createElement('option');
+      opt.value = g;
+      dl.appendChild(opt);
+    });
+  }
+
+  // ==================== RESEP EDITOR (in produk form) ====================
+
+  function filterResepBahan() {
+    var keyword = (document.getElementById('resep-search-bahan').value || '').toLowerCase();
+    var dropdown = document.getElementById('resep-bahan-dropdown');
+    if (!dropdown) return;
+    if (!keyword) { dropdown.style.display = 'none'; return; }
+
+    var filtered = APP.bahanBaku.filter(function(b) {
+      return (b.nama + ' ' + b.grup).toLowerCase().indexOf(keyword) !== -1;
+    });
+
+    // Exclude already added
+    var addedIds = (APP.resepEditTemp || []).map(function(r) { return r.idBahan; });
+    filtered = filtered.filter(function(b) { return addedIds.indexOf(b.id) === -1; });
+
+    if (filtered.length === 0) {
+      dropdown.style.display = 'none';
+      return;
+    }
+
+    var html = '';
+    for (var i = 0; i < filtered.length; i++) {
+      var b = filtered[i];
+      var grupBadge = b.grup ? '<span style="font-size:10px;background:var(--primary-light,#e0f2fe);color:var(--primary);padding:1px 6px;border-radius:8px;margin-left:4px">' + b.grup + '</span>' : '';
+      html += '<div style="padding:10px 12px;cursor:pointer;border-bottom:1px solid var(--border-light);display:flex;align-items:center;justify-content:space-between;background:var(--bg-card);" ' +
+        'onclick="addBahanToResep(\'' + b.id + '\',\'' + b.nama.replace(/'/g, '') + '\',\'' + b.satuan + '\')" ' +
+        'onmouseover="this.style.background=\'var(--bg)\'" onmouseout="this.style.background=\'var(--bg-card)\'">' +
+        '<span>' + b.nama + grupBadge + '</span>' +
+        '<span style="font-size:11px;color:var(--text-muted)">' + b.stok + ' ' + b.satuan + '</span>' +
+        '</div>';
+    }
+    dropdown.innerHTML = html;
+    dropdown.style.display = 'block';
+  }
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', function(e) {
+    var searchEl = document.getElementById('resep-search-bahan');
+    var dropdown = document.getElementById('resep-bahan-dropdown');
+    if (searchEl && dropdown && !searchEl.contains(e.target) && !dropdown.contains(e.target)) {
+      dropdown.style.display = 'none';
+    }
+  });
+
+  function addBahanToResep(idBahan, namaBahan, satuan) {
+    if ((APP.resepEditTemp || []).find(function (r) { return r.idBahan === idBahan; })) {
+      showToast('Bahan sudah ada dalam resep', 'warning'); return;
+    }
+    if (!APP.resepEditTemp) APP.resepEditTemp = [];
+    APP.resepEditTemp.push({ tipeBahan: 'Tetap', idBahan: idBahan, namaBahan: namaBahan, jumlahPerPorsi: 1, satuan: satuan, grupPilihan: '' });
+    renderResepList();
+    var searchEl = document.getElementById('resep-search-bahan');
+    var dropdown = document.getElementById('resep-bahan-dropdown');
+    if (searchEl) searchEl.value = '';
+    if (dropdown) dropdown.style.display = 'none';
+  }
+
+  function addGrupPilihanToResep() {
+    var grupInput = document.getElementById('resep-pilihan-grup');
+    var qtyInput = document.getElementById('resep-pilihan-qty');
+    var grup = grupInput ? grupInput.value.trim() : '';
+    var qty = qtyInput ? (Number(qtyInput.value) || 1) : 1;
+    if (!grup) { showToast('Pilih grup/brand terlebih dahulu', 'warning'); return; }
+    var alreadyExists = (APP.resepEditTemp || []).find(function (r) {
+      return r.tipeBahan === 'Pilihan' && r.grupPilihan === grup;
+    });
+    if (alreadyExists) { showToast('Grup "' + grup + '" sudah ada dalam resep', 'warning'); return; }
+    var firstBahan = APP.bahanBaku.find(function (b) { return b.grup === grup; });
+    var satuanGrup = firstBahan ? firstBahan.satuan : '';
+    if (!APP.resepEditTemp) APP.resepEditTemp = [];
+    APP.resepEditTemp.push({ tipeBahan: 'Pilihan', grupPilihan: grup, idBahan: '', namaBahan: '', jumlahPerPorsi: qty, satuan: satuanGrup });
+    renderResepList();
+    if (grupInput) grupInput.value = '';
+    if (qtyInput) qtyInput.value = '1';
+  }
+
+  function removeBahanFromResep(key) {
+    APP.resepEditTemp = (APP.resepEditTemp || []).filter(function (r) {
+      return (r.tipeBahan === 'Pilihan' ? 'PILIHAN_' + r.grupPilihan : r.idBahan) !== key;
+    });
+    renderResepList();
+  }
+
+  function updateResepQty(key, value) {
+    var item = (APP.resepEditTemp || []).find(function (r) {
+      return (r.tipeBahan === 'Pilihan' ? 'PILIHAN_' + r.grupPilihan : r.idBahan) === key;
+    });
+    if (item) item.jumlahPerPorsi = Number(value) || 1;
+    updateResepStokPreview();
+  }
+
+  function renderResepList() {
+    var container = document.getElementById('resep-list');
+    if (!container) return;
+    var items = APP.resepEditTemp || [];
+    if (items.length === 0) {
+      container.innerHTML = '<div style="text-align:center;padding:12px;color:var(--text-muted);font-size:12px;background:var(--bg);border-radius:var(--radius-sm)">Belum ada bahan baku. Produk tidak bisa dijual sampai resep diisi.</div>';
+      var preview = document.getElementById('resep-stok-preview');
+      if (preview) preview.style.display = 'none';
+      return;
+    }
+    var html = '<div style="border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">';
+    for (var i = 0; i < items.length; i++) {
+      var item = items[i];
+      var tipe = item.tipeBahan || 'Tetap';
+      var key = tipe === 'Pilihan' ? 'PILIHAN_' + item.grupPilihan : item.idBahan;
+      var bg = i % 2 === 0 ? '' : 'background:var(--bg)';
+      var tipeBadge = tipe === 'Pilihan'
+        ? '<span style="font-size:10px;background:#fef9c3;color:#92400e;padding:1px 6px;border-radius:8px;margin-right:4px;font-weight:600">Pilihan</span>'
+        : '<span style="font-size:10px;background:#dcfce7;color:#166534;padding:1px 6px;border-radius:8px;margin-right:4px;font-weight:600">Tetap</span>';
+      var label = tipe === 'Pilihan'
+        ? 'Pilih dari Grup: <strong>' + item.grupPilihan + '</strong>'
+        : item.namaBahan;
+      html += '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;' + bg + '">' +
+        '<span class="material-icons-round" style="font-size:16px;color:var(--text-muted)">' + (tipe === 'Pilihan' ? 'tune' : 'kitchen') + '</span>' +
+        '<span style="flex:1;font-size:13px">' + tipeBadge + label + '</span>' +
+        '<div style="display:flex;align-items:center;gap:4px">' +
+        '<input type="number" min="0.1" step="0.1" value="' + item.jumlahPerPorsi + '" ' +
+        'style="width:70px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:center" ' +
+        'onchange="updateResepQty(\'' + key + '\', this.value)">' +
+        '<span style="font-size:12px;color:var(--text-muted);min-width:40px">' + (item.satuan || '') + '</span>' +
+        '</div>' +
+        '<button onclick="removeBahanFromResep(\'' + key + '\')" style="background:none;border:none;cursor:pointer;color:var(--danger);padding:2px">' +
+        '<span class="material-icons-round" style="font-size:18px">delete</span>' +
+        '</button>' +
+        '</div>';
+    }
+    html += '</div>';
+    container.innerHTML = html;
+    updateResepStokPreview();
+  }
+
+  function updateResepStokPreview() {
+    var preview = document.getElementById('resep-stok-preview');
+    var previewText = document.getElementById('resep-stok-preview-text');
+    if (!preview || !previewText) return;
+    var items = APP.resepEditTemp || [];
+    if (items.length === 0) { preview.style.display = 'none'; return; }
+
+    var minPorsi = Infinity;
+    var bottleneck = '';
+    for (var i = 0; i < items.length; i++) {
+      var tipe = items[i].tipeBahan || 'Tetap';
+      var porsi;
+      if (tipe === 'Pilihan') {
+        var totalGrup = APP.bahanBaku.filter(function (x) { return x.grup === items[i].grupPilihan; })
+          .reduce(function (sum, x) { return sum + x.stok; }, 0);
+        porsi = Math.floor(totalGrup / (items[i].jumlahPerPorsi || 1));
+        if (porsi < minPorsi) { minPorsi = porsi; bottleneck = 'Grup ' + items[i].grupPilihan; }
+      } else {
+        var b = APP.bahanBaku.find(function (x) { return x.id === items[i].idBahan; });
+        if (!b) continue;
+        porsi = Math.floor(b.stok / (items[i].jumlahPerPorsi || 1));
+        if (porsi < minPorsi) { minPorsi = porsi; bottleneck = b.nama; }
+      }
+    }
+    if (minPorsi === Infinity) minPorsi = 0;
+    previewText.textContent = '📦 Stok tersedia: ' + minPorsi + ' porsi' + (bottleneck ? ' (dibatasi oleh: ' + bottleneck + ')' : '');
+    preview.style.display = 'block';
   }
 
   // ==================== INIT ====================

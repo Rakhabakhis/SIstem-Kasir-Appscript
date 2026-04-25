@@ -1,0 +1,517 @@
+<!-- =====================================================
+     HALAMAN BAHAN BAKU - Manajemen Bahan Baku & Resep
+     ===================================================== -->
+
+<div class="page-header">
+  <div class="page-title-row">
+    <button class="mobile-toggle" onclick="toggleSidebar()">
+      <span class="material-icons-round">menu</span>
+    </button>
+    <h1 class="page-title">Bahan Baku</h1>
+  </div>
+  <button class="btn btn-primary" onclick="openTambahBahanBakuModal()">
+    <span class="material-icons-round">add</span> Tambah Bahan Baku
+  </button>
+</div>
+
+<!-- Alert Stok Rendah -->
+<div id="bb-low-stock-alert" style="display:none;margin-bottom:16px;">
+  <div style="background:var(--warning-bg);border:1px solid var(--warning);border-radius:var(--radius);padding:12px 16px;display:flex;align-items:center;gap:10px;">
+    <span class="material-icons-round" style="color:var(--warning)">warning</span>
+    <span id="bb-low-stock-text" style="font-size:13px;color:var(--warning);font-weight:500;flex:1"></span>
+    <button class="btn btn-sm" onclick="document.getElementById('bb-low-stock-alert').style.display='none'" style="background:transparent;border:none;padding:0;cursor:pointer;">
+      <span class="material-icons-round" style="font-size:16px;color:var(--warning)">close</span>
+    </button>
+  </div>
+</div>
+
+<div class="page-body">
+  <!-- Tab Navigation -->
+  <div class="tab-nav" style="display:flex;gap:4px;margin-bottom:20px;border-bottom:2px solid var(--border);">
+    <button id="bb-tab-daftar" class="tab-btn active" onclick="switchBBTab('daftar')"
+      style="padding:10px 20px;border:none;background:none;font-size:13px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--primary);border-bottom-color:var(--primary);">
+      <span class="material-icons-round" style="font-size:16px;vertical-align:middle;margin-right:4px">inventory_2</span>
+      Daftar Bahan Baku
+    </button>
+    <button id="bb-tab-log" class="tab-btn" onclick="switchBBTab('log')"
+      style="padding:10px 20px;border:none;background:none;font-size:13px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--text-muted);">
+      <span class="material-icons-round" style="font-size:16px;vertical-align:middle;margin-right:4px">history</span>
+      Log Perubahan Stok
+    </button>
+  </div>
+
+  <!-- ===== TAB: DAFTAR BAHAN BAKU ===== -->
+  <div id="bb-panel-daftar">
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <div class="search-bar">
+        <span class="material-icons-round">search</span>
+        <input type="text" id="search-bahan" placeholder="Cari bahan baku..." oninput="filterBahanBaku()">
+      </div>
+      <div class="filter-row">
+        <select id="filter-grup-bahan" class="form-control form-select" style="width:auto" onchange="filterBahanBaku()">
+          <option value="">Semua Grup</option>
+        </select>
+        <select id="filter-status-bahan" class="form-control form-select" style="width:auto" onchange="filterBahanBaku()">
+          <option value="">Semua Status</option>
+          <option value="Aktif">Aktif</option>
+          <option value="Nonaktif">Nonaktif</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="stats-grid" style="margin-bottom:16px;">
+      <div class="stat-card">
+        <div class="stat-icon" style="background:var(--primary-light)">
+          <span class="material-icons-round" style="color:var(--primary)">inventory_2</span>
+        </div>
+        <div class="stat-info">
+          <div class="stat-value" id="bb-stat-total">0</div>
+          <div class="stat-label">Total Bahan</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background:var(--success-bg)">
+          <span class="material-icons-round" style="color:var(--success)">check_circle</span>
+        </div>
+        <div class="stat-info">
+          <div class="stat-value" id="bb-stat-aktif">0</div>
+          <div class="stat-label">Bahan Aktif</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background:var(--warning-bg)">
+          <span class="material-icons-round" style="color:var(--warning)">warning</span>
+        </div>
+        <div class="stat-info">
+          <div class="stat-value" id="bb-stat-lowstock">0</div>
+          <div class="stat-label">Stok Rendah</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background:var(--danger-bg, #fee2e2)">
+          <span class="material-icons-round" style="color:var(--danger)">remove_circle</span>
+        </div>
+        <div class="stat-info">
+          <div class="stat-value" id="bb-stat-habis">0</div>
+          <div class="stat-label">Stok Habis</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="card">
+      <div style="overflow-x:auto">
+        <table class="data-table" id="bahan-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Nama Bahan</th>
+              <th>Grup/Brand</th>
+              <th>Stok</th>
+              <th>Satuan</th>
+              <th>Stok Min.</th>
+              <th>Keterangan</th>
+              <th>Status</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="bahan-tbody">
+            <tr><td colspan="9" style="text-align:center;padding:20px;color:var(--text-muted)">Memuat data...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== TAB: LOG BAHAN BAKU ===== -->
+  <div id="bb-panel-log" style="display:none;">
+    <div class="toolbar">
+      <div class="search-bar">
+        <span class="material-icons-round">search</span>
+        <input type="text" id="search-log-bahan" placeholder="Cari nama bahan atau transaksi..." oninput="filterLogBahan()">
+      </div>
+      <div class="filter-row log-filter-row">
+        <select id="filter-tipe-log" class="form-control form-select" style="width:auto" onchange="filterLogBahan()">
+          <option value="">Semua Tipe</option>
+          <option value="Masuk">Masuk</option>
+          <option value="Keluar">Keluar</option>
+          <option value="Penyesuaian">Penyesuaian</option>
+        </select>
+        <div class="log-date-range">
+          <div class="log-date-field">
+            <label class="log-date-label" for="filter-log-date-from">
+              <span class="material-icons-round" style="font-size:14px">event</span> Dari
+            </label>
+            <input type="date" id="filter-log-date-from" class="form-control" onchange="filterLogBahan()">
+          </div>
+          <span class="log-date-separator">-</span>
+          <div class="log-date-field">
+            <label class="log-date-label" for="filter-log-date-to">
+              <span class="material-icons-round" style="font-size:14px">event</span> Sampai
+            </label>
+            <input type="date" id="filter-log-date-to" class="form-control" onchange="filterLogBahan()">
+          </div>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="loadLogBahanBaku()">
+          <span class="material-icons-round" style="font-size:15px">refresh</span> Refresh
+        </button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="overflow-x:auto">
+        <table class="data-table" id="log-bahan-table">
+          <thead>
+            <tr>
+              <th>Waktu</th>
+              <th>Bahan Baku</th>
+              <th style="text-align:center">Sebelum</th>
+              <th style="text-align:center">Perubahan</th>
+              <th style="text-align:center">Sesudah</th>
+              <th>Tipe</th>
+              <th>Keterangan</th>
+              <th>Oleh</th>
+            </tr>
+          </thead>
+          <tbody id="log-bahan-tbody">
+            <tr><td colspan="8" style="text-align:center;padding:20px;color:var(--text-muted)">Belum ada log</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+var _allBahanBaku = [];
+var _allLogBahan = [];
+
+function switchBBTab(tab) {
+  var panels = ['daftar', 'log'];
+  panels.forEach(function(t) {
+    var panel = document.getElementById('bb-panel-' + t);
+    var btn = document.getElementById('bb-tab-' + t);
+    if (panel) panel.style.display = (t === tab) ? '' : 'none';
+    if (btn) {
+      if (t === tab) {
+        btn.style.color = 'var(--primary)';
+        btn.style.borderBottomColor = 'var(--primary)';
+      } else {
+        btn.style.color = 'var(--text-muted)';
+        btn.style.borderBottomColor = 'transparent';
+      }
+    }
+  });
+  if (tab === 'log') loadLogBahanBaku();
+}
+
+function loadBahanBakuPage() {
+  var tbody = document.getElementById('bahan-tbody');
+  if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:var(--text-muted)"><div class="spinner" style="margin:0 auto"></div></td></tr>';
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res && res.success) {
+        _allBahanBaku = res.data || [];
+        renderBahanBakuTable(_allBahanBaku);
+        populateGrupFilter();
+        updateBBStats();
+        checkLowStockAlert();
+      } else {
+        if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:var(--danger)">Gagal memuat data</td></tr>';
+      }
+    })
+    .withFailureHandler(function(err) {
+      if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:var(--danger)">Error: ' + (err ? err.message : 'Gagal') + '</td></tr>';
+    })
+    .getAllBahanBaku();
+}
+
+function renderBahanBakuTable(data) {
+  var tbody = document.getElementById('bahan-tbody');
+  if (!tbody) return;
+  if (!data || data.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:var(--text-muted)">Belum ada bahan baku</td></tr>';
+    return;
+  }
+  var html = '';
+  for (var i = 0; i < data.length; i++) {
+    var b = data[i];
+    var isLow = b.stok <= b.stokMinimum && b.stokMinimum > 0;
+    var isHabis = b.stok <= 0;
+    var stokColor = isHabis ? 'color:var(--danger);font-weight:700' : (isLow ? 'color:var(--warning);font-weight:700' : '');
+    var stokIcon = isHabis ? '<span class="material-icons-round" style="font-size:14px;color:var(--danger);vertical-align:middle">error</span> ' : (isLow ? '<span class="material-icons-round" style="font-size:14px;color:var(--warning);vertical-align:middle">warning</span> ' : '');
+    var statusStyle = b.status === 'Aktif'
+      ? 'background:var(--success-bg);color:var(--success)'
+      : 'background:var(--warning-bg);color:var(--warning)';
+    var namaSafe = (b.nama || '').replace(/'/g, '');
+    html += '<tr>' +
+      '<td style="font-size:11px;color:var(--text-muted)">' + b.id + '</td>' +
+      '<td><strong>' + b.nama + '</strong></td>' +
+      '<td>' + (b.grup ? '<span style="background:var(--primary-light,#e0f2fe);color:var(--primary);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">' + b.grup + '</span>' : '—') + '</td>' +
+      '<td style="' + stokColor + '">' + stokIcon + b.stok + '</td>' +
+      '<td style="color:var(--text-muted);font-size:12px">' + b.satuan + '</td>' +
+      '<td style="color:var(--text-muted);font-size:12px">' + b.stokMinimum + '</td>' +
+      '<td style="font-size:12px;color:var(--text-muted);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (b.keterangan || '—') + '</td>' +
+      '<td><span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;' + statusStyle + '">' + b.status + '</span></td>' +
+      '<td style="display:flex;gap:4px;flex-wrap:wrap;">' +
+      '<button class="btn btn-sm btn-secondary" onclick="openRestokModal(\'' + b.id + '\',\'' + namaSafe + '\',\'' + b.satuan + '\')" title="Restok"><span class="material-icons-round" style="font-size:14px">add_circle</span></button>' +
+      '<button class="btn btn-sm btn-secondary" onclick="editBahanBakuForm(\'' + b.id + '\')" title="Edit"><span class="material-icons-round" style="font-size:14px">edit</span></button>' +
+      '<button class="btn btn-sm btn-danger" onclick="confirmHapusBahan(\'' + b.id + '\',\'' + namaSafe + '\')" title="Nonaktifkan"><span class="material-icons-round" style="font-size:14px">delete</span></button>' +
+      '</td></tr>';
+  }
+  tbody.innerHTML = html;
+}
+
+function updateBBStats() {
+  var total = _allBahanBaku.length;
+  var aktif = _allBahanBaku.filter(function(b) { return b.status === 'Aktif'; }).length;
+  var lowstock = _allBahanBaku.filter(function(b) { return b.status === 'Aktif' && b.stok > 0 && b.stok <= b.stokMinimum && b.stokMinimum > 0; }).length;
+  var habis = _allBahanBaku.filter(function(b) { return b.status === 'Aktif' && b.stok <= 0; }).length;
+  var s = function(id, v) { var el = document.getElementById(id); if (el) el.textContent = v; };
+  s('bb-stat-total', total);
+  s('bb-stat-aktif', aktif);
+  s('bb-stat-lowstock', lowstock);
+  s('bb-stat-habis', habis);
+}
+
+function checkLowStockAlert() {
+  var lowItems = _allBahanBaku.filter(function(b) { return b.status === 'Aktif' && b.stok <= b.stokMinimum && b.stokMinimum > 0; });
+  var alertEl = document.getElementById('bb-low-stock-alert');
+  var textEl = document.getElementById('bb-low-stock-text');
+  if (!alertEl || !textEl) return;
+  if (lowItems.length > 0) {
+    var names = lowItems.slice(0, 3).map(function(b) { return b.nama + ' (' + b.stok + ' ' + b.satuan + ')'; }).join(', ');
+    if (lowItems.length > 3) names += ' dan ' + (lowItems.length - 3) + ' lainnya';
+    textEl.textContent = '⚠️ ' + lowItems.length + ' bahan baku stok rendah: ' + names;
+    alertEl.style.display = 'block';
+  } else {
+    alertEl.style.display = 'none';
+  }
+}
+
+function populateGrupFilter() {
+  var sel = document.getElementById('filter-grup-bahan');
+  if (!sel) return;
+  var grupSet = {};
+  _allBahanBaku.forEach(function(b) { if (b.grup) grupSet[b.grup] = true; });
+  var grups = Object.keys(grupSet).sort();
+  var opts = '<option value="">Semua Grup</option>';
+  grups.forEach(function(g) { opts += '<option value="' + g + '">' + g + '</option>'; });
+  sel.innerHTML = opts;
+}
+
+function filterBahanBaku() {
+  var keyword = (document.getElementById('search-bahan').value || '').toLowerCase();
+  var grup = document.getElementById('filter-grup-bahan').value;
+  var status = document.getElementById('filter-status-bahan').value;
+  var filtered = _allBahanBaku.filter(function(b) {
+    var matchK = !keyword || (b.nama + b.grup + b.keterangan).toLowerCase().indexOf(keyword) !== -1;
+    var matchG = !grup || b.grup === grup;
+    var matchS = !status || b.status === status;
+    return matchK && matchG && matchS;
+  });
+  renderBahanBakuTable(filtered);
+}
+
+// ===== TAMBAH / EDIT MODAL =====
+function openTambahBahanBakuModal() {
+  document.getElementById('bb-form-title').textContent = 'Tambah Bahan Baku';
+  document.getElementById('bb-form').reset();
+  document.getElementById('bb-id-edit').value = '';
+  document.getElementById('bb-satuan').value = 'saset';
+  var stokAwalGroup = document.getElementById('bb-stok-awal-group');
+  if (stokAwalGroup) stokAwalGroup.style.display = '';
+  showModal('modal-bahan-baku');
+}
+
+function editBahanBakuForm(id) {
+  var b = _allBahanBaku.find(function(x) { return x.id === id; });
+  if (!b) return;
+  document.getElementById('bb-form-title').textContent = 'Edit Bahan Baku';
+  document.getElementById('bb-id-edit').value = b.id;
+  document.getElementById('bb-nama').value = b.nama;
+  document.getElementById('bb-grup').value = b.grup || '';
+  document.getElementById('bb-satuan').value = b.satuan || 'saset';
+  document.getElementById('bb-stok-minimum').value = b.stokMinimum || 0;
+  document.getElementById('bb-keterangan').value = b.keterangan || '';
+  var stokAwalGroup = document.getElementById('bb-stok-awal-group');
+  if (stokAwalGroup) stokAwalGroup.style.display = 'none';
+  showModal('modal-bahan-baku');
+}
+
+function saveBahanBaku() {
+  var id = document.getElementById('bb-id-edit').value;
+  var data = {
+    nama: document.getElementById('bb-nama').value,
+    grup: document.getElementById('bb-grup').value,
+    satuan: document.getElementById('bb-satuan').value,
+    stokMinimum: document.getElementById('bb-stok-minimum').value,
+    keterangan: document.getElementById('bb-keterangan').value
+  };
+  if (!data.nama || !data.satuan) { showToast('Nama dan Satuan wajib diisi', 'warning'); return; }
+  if (id) data.id = id;
+  showLoading(true);
+  var fn = id ? 'editBahanBaku' : 'tambahBahanBaku';
+  if (!id) {
+    data.stok = document.getElementById('bb-stok-awal') ? Number(document.getElementById('bb-stok-awal').value) || 0 : 0;
+  }
+  google.script.run
+    .withSuccessHandler(function(res) {
+      showLoading(false);
+      closeModal('modal-bahan-baku');
+      if (res.success) {
+        showToast(res.message, 'success');
+        loadBahanBakuPage();
+        // Refresh bahan baku di APP state
+        refreshBahanBakuState();
+      } else {
+        showToast(res.message, 'error');
+      }
+    })
+    .withFailureHandler(function(e) { showLoading(false); showToast(e.message, 'error'); })
+    [fn](data);
+}
+
+function confirmHapusBahan(id, nama) {
+  if (!confirm('Nonaktifkan bahan baku "' + nama + '"?\nBahan baku tidak bisa digunakan jika dinonaktifkan.')) return;
+  showLoading(true);
+  google.script.run
+    .withSuccessHandler(function(res) {
+      showLoading(false);
+      if (res.success) { showToast(res.message, 'success'); loadBahanBakuPage(); refreshBahanBakuState(); }
+      else showToast(res.message, 'error');
+    })
+    .withFailureHandler(function(e) { showLoading(false); showToast(e.message, 'error'); })
+    .hapusBahanBaku(id);
+}
+
+// ===== RESTOK MODAL =====
+function openRestokModal(id, nama, satuan) {
+  document.getElementById('restok-bahan-id').value = id;
+  document.getElementById('restok-bahan-nama').textContent = nama;
+  document.getElementById('restok-satuan-label').textContent = satuan;
+  document.getElementById('restok-jumlah').value = '';
+  document.getElementById('restok-keterangan').value = '';
+  showModal('modal-restok-bahan');
+}
+
+function saveRestok() {
+  var id = document.getElementById('restok-bahan-id').value;
+  var jumlah = Number(document.getElementById('restok-jumlah').value);
+  var ket = document.getElementById('restok-keterangan').value;
+  if (!jumlah || jumlah <= 0) { showToast('Jumlah restok harus lebih dari 0', 'warning'); return; }
+  showLoading(true);
+  google.script.run
+    .withSuccessHandler(function(res) {
+      showLoading(false);
+      closeModal('modal-restok-bahan');
+      if (res.success) {
+        showToast(res.message, 'success');
+        loadBahanBakuPage();
+        refreshBahanBakuState();
+      } else {
+        showToast(res.message, 'error');
+      }
+    })
+    .withFailureHandler(function(e) { showLoading(false); showToast(e.message, 'error'); })
+    .restokBahanBaku(id, jumlah, ket);
+}
+
+// ===== LOG BAHAN BAKU =====
+function loadLogBahanBaku() {
+  var tbody = document.getElementById('log-bahan-tbody');
+  if (tbody) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--text-muted)"><div class="spinner" style="margin:0 auto"></div></td></tr>';
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res && res.success) {
+        _allLogBahan = res.data || [];
+        filterLogBahan();
+      } else {
+        if (tbody) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--danger)">Gagal memuat log</td></tr>';
+      }
+    })
+    .withFailureHandler(function(err) {
+      if (tbody) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--danger)">Error: ' + (err ? err.message : 'Gagal') + '</td></tr>';
+    })
+    .getLogBahanBaku(200);
+}
+
+function renderLogBahan(data) {
+  var tbody = document.getElementById('log-bahan-tbody');
+  if (!tbody) return;
+  if (!data || data.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--text-muted)">Belum ada riwayat perubahan stok</td></tr>';
+    return;
+  }
+  var html = '';
+  for (var i = 0; i < data.length; i++) {
+    var log = data[i];
+    var isPositive = log.perubahan >= 0;
+    var perubahanText = (isPositive ? '+' : '') + log.perubahan;
+    var perubahanStyle = isPositive ? 'color:var(--success);font-weight:700' : 'color:var(--danger);font-weight:700';
+    var tipeStyle = log.tipe === 'Masuk'
+      ? 'background:var(--success-bg);color:var(--success)'
+      : (log.tipe === 'Keluar' ? 'background:var(--danger-bg,#fee2e2);color:var(--danger)' : 'background:var(--warning-bg);color:var(--warning)');
+    html += '<tr>' +
+      '<td style="font-size:12px;white-space:nowrap">' + log.tanggal + '</td>' +
+      '<td><strong>' + log.namaBahan + '</strong><br><span style="font-size:11px;color:var(--text-muted)">' + log.idBahan + '</span></td>' +
+      '<td style="text-align:center">' + log.stokSebelum + '</td>' +
+      '<td style="text-align:center;' + perubahanStyle + '">' + perubahanText + '</td>' +
+      '<td style="text-align:center">' + log.stokSesudah + '</td>' +
+      '<td><span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;' + tipeStyle + '">' + log.tipe + '</span></td>' +
+      '<td style="font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (log.keterangan || '—') + '</td>' +
+      '<td style="font-size:12px">' + (log.diupdateOleh || '—') + '</td>' +
+      '</tr>';
+  }
+  tbody.innerHTML = html;
+}
+
+function filterLogBahan() {
+  var keyword = (document.getElementById('search-log-bahan').value || '').toLowerCase();
+  var tipe = document.getElementById('filter-tipe-log').value;
+  var dateFromVal = (document.getElementById('filter-log-date-from').value || '').trim();
+  var dateToVal = (document.getElementById('filter-log-date-to').value || '').trim();
+  var dateFrom = dateFromVal ? new Date(dateFromVal + 'T00:00:00') : null;
+  var dateTo = dateToVal ? new Date(dateToVal + 'T23:59:59') : null;
+
+  if (dateFrom && isNaN(dateFrom.getTime())) dateFrom = null;
+  if (dateTo && isNaN(dateTo.getTime())) dateTo = null;
+
+  var filtered = _allLogBahan.filter(function(log) {
+    var matchK = !keyword || (log.namaBahan + log.keterangan + log.idTransaksi).toLowerCase().indexOf(keyword) !== -1;
+    var matchT = !tipe || log.tipe === tipe;
+    var matchDate = true;
+    if (dateFrom || dateTo) {
+      var logDate = parseLogTanggal(log.tanggal);
+      if (!logDate) {
+        matchDate = false;
+      } else {
+        if (dateFrom && logDate < dateFrom) matchDate = false;
+        if (dateTo && logDate > dateTo) matchDate = false;
+      }
+    }
+    return matchK && matchT && matchDate;
+  });
+  renderLogBahan(filtered);
+}
+
+function parseLogTanggal(value) {
+  if (!value) return null;
+  var raw = String(value).trim();
+  var datePart = raw.split(' ')[0];
+  var timePart = raw.split(' ')[1] || '00:00';
+  var d = datePart.split('/');
+  var t = timePart.split(':');
+  if (d.length !== 3) return null;
+  var day = Number(d[0]);
+  var month = Number(d[1]) - 1;
+  var year = Number(d[2]);
+  var hour = Number(t[0] || 0);
+  var minute = Number(t[1] || 0);
+  var parsed = new Date(year, month, day, hour, minute, 0, 0);
+  return isNaN(parsed.getTime()) ? null : parsed;
+}
+</script>

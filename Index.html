@@ -77,6 +77,10 @@
         <li class="nav-item active" data-page="kasir" onclick="navigateTo('kasir')">
           <span class="material-icons-round">point_of_sale</span> Pesanan Baru
         </li>
+        <li class="nav-item" data-page="pesanan" onclick="navigateTo('pesanan')" style="position:relative">
+          <span class="material-icons-round">receipt_long</span> Daftar Pesanan
+          <span id="nav-pesanan-badge" style="display:none;position:absolute;right:12px;top:50%;transform:translateY(-50%);background:var(--warning);color:#fff;border-radius:10px;font-size:10px;font-weight:700;padding:1px 6px;min-width:18px;text-align:center">0</span>
+        </li>
         <li class="nav-item" data-page="produk" onclick="navigateTo('produk')">
           <span class="material-icons-round">restaurant_menu</span> Menu Produk
         </li>
@@ -90,8 +94,8 @@
 
       <div class="nav-section-label">MANAJEMEN</div>
       <ul class="nav-menu">
-        <li class="nav-item" data-page="stok" onclick="navigateTo('stok')">
-          <span class="material-icons-round">inventory_2</span> Update Stok
+        <li class="nav-item" data-page="bahan-baku" onclick="navigateTo('bahan-baku')">
+          <span class="material-icons-round">kitchen</span> Bahan Baku
         </li>
         <li class="nav-item" data-page="laporan" onclick="navigateTo('laporan')">
           <span class="material-icons-round">assessment</span> Laporan Penjualan
@@ -123,6 +127,11 @@
         <?!= include('HalamanKasir') ?>
       </section>
 
+      <!-- ===== PAGE: DAFTAR PESANAN ===== -->
+      <section id="page-pesanan" class="page">
+        <?!= include('HalamanPesanan') ?>
+      </section>
+
       <!-- ===== PAGE: PRODUK ===== -->
       <section id="page-produk" class="page">
         <?!= include('HalamanProduk') ?>
@@ -133,9 +142,9 @@
         <?!= include('HalamanKategori') ?>
       </section>
 
-      <!-- ===== PAGE: STOK ===== -->
-      <section id="page-stok" class="page">
-        <?!= include('HalamanStok') ?>
+      <!-- ===== PAGE: BAHAN BAKU ===== -->
+      <section id="page-bahan-baku" class="page">
+        <?!= include('HalamanBahanBaku') ?>
       </section>
 
       <!-- ===== PAGE: LAPORAN ===== -->
@@ -156,63 +165,150 @@
     </div>
   </div>
 
-  <!-- ===== MODAL: PAYMENT ===== -->
+  <!-- ===== MODAL: PAYMENT (Multi-Step Checkout) ===== -->
   <div id="modal-payment" class="modal-overlay" onclick="if(event.target===this)closeModal('modal-payment')">
     <div class="modal">
       <div class="modal-header">
-        <h3 class="modal-title">Pembayaran</h3>
-        <button class="modal-close" onclick="closeModal('modal-payment')"><span
-            class="material-icons-round">close</span></button>
+        <h3 class="modal-title" id="pay-modal-title">Checkout</h3>
+        <button class="modal-close" onclick="closeModal('modal-payment')"><span class="material-icons-round">close</span></button>
       </div>
       <div class="modal-body">
+        <!-- Total selalu tampil -->
         <div style="text-align:center;margin-bottom:20px;">
           <div style="font-size:13px;color:var(--text-muted)">Total Pembayaran</div>
           <div id="pay-total-display" style="font-size:28px;font-weight:800;color:var(--primary)">Rp 0</div>
         </div>
 
-        <!-- Kasir Selection -->
-        <div class="form-group">
-          <label class="form-label">Kasir yang Melayani</label>
-          <select id="pay-kasir" class="form-control form-select"></select>
+        <!-- STEP 1: Pilih Metode Pemesanan -->
+        <div id="pay-step-method">
+          <div class="form-label" style="margin-bottom:12px;font-size:14px;font-weight:600">Metode Pemesanan</div>
+          <div class="checkout-methods">
+            <div class="checkout-method-card" onclick="selectCheckoutMethod('bayar-langsung')">
+              <span class="material-icons-round checkout-method-icon">payments</span>
+              <div class="checkout-method-title">Bayar Langsung</div>
+              <div class="checkout-method-desc">Pembeli langsung melakukan pembayaran.</div>
+            </div>
+            <div class="checkout-method-card" onclick="selectCheckoutMethod('buat-pesanan')">
+              <span class="material-icons-round checkout-method-icon">receipt_long</span>
+              <div class="checkout-method-title">Buat Pesanan</div>
+              <div class="checkout-method-desc">Pembayaran dilakukan setelah proses pemesanan selesai.</div>
+            </div>
+            <div class="checkout-method-card" onclick="selectCheckoutMethod('gabungkan-pesanan')">
+              <span class="material-icons-round checkout-method-icon">add_shopping_cart</span>
+              <div class="checkout-method-title">Gabungkan Pesanan</div>
+              <div class="checkout-method-desc">Penggabungan dengan pesanan yang sudah ada.</div>
+            </div>
+          </div>
         </div>
 
-        <div class="form-label" style="margin-bottom:8px">Metode Pembayaran</div>
-        <div class="payment-methods">
-          <div class="payment-option selected" data-method="Cash" onclick="selectPayment('Cash',this)">
-            <span class="material-icons-round">payments</span> Cash
+        <!-- STEP 2a: Bayar Langsung -->
+        <div id="pay-step-bayar" style="display:none">
+          <div class="form-group">
+            <label class="form-label">Kasir yang Melayani</label>
+            <select id="pay-kasir" class="form-control form-select"></select>
           </div>
-          <div class="payment-option" data-method="QRIS" onclick="selectPayment('QRIS',this)">
-            <span class="material-icons-round">qr_code_2</span> QRIS
+          <div class="form-label" style="margin-bottom:8px">Metode Pembayaran</div>
+          <div class="payment-methods">
+            <div class="payment-option selected" data-method="Cash" onclick="selectPayment('Cash',this)">
+              <span class="material-icons-round">payments</span> Cash
+            </div>
+            <div class="payment-option" data-method="QRIS" onclick="selectPayment('QRIS',this)">
+              <span class="material-icons-round">qr_code_2</span> QRIS
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Jumlah Bayar</label>
+            <input type="number" id="pay-amount" class="form-control" placeholder="Masukkan jumlah..." oninput="calcChange()" style="font-size:18px;font-weight:600;">
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--bg);border-radius:var(--radius-sm);">
+            <span style="font-weight:500">Kembalian</span>
+            <span id="pay-change" style="font-size:20px;font-weight:800;color:var(--success)">Rp 0</span>
           </div>
         </div>
 
-        <div class="form-group">
-          <label class="form-label">Jumlah Bayar</label>
-          <input type="number" id="pay-amount" class="form-control" placeholder="Masukkan jumlah..."
-            oninput="calcChange()" style="font-size:18px;font-weight:600;">
+        <!-- STEP 2b: Buat Pesanan -->
+        <div id="pay-step-buat" style="display:none">
+          <div class="form-group">
+            <label class="form-label">Nama Pelanggan *</label>
+            <input type="text" id="pay-nama-pelanggan" class="form-control" placeholder="Masukkan nama pelanggan..." style="font-size:15px;">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Kasir yang Melayani</label>
+            <select id="pay-kasir-pesanan" class="form-control form-select"></select>
+          </div>
         </div>
-        <div
-          style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--bg);border-radius:var(--radius-sm);">
-          <span style="font-weight:500">Kembalian</span>
-          <span id="pay-change" style="font-size:20px;font-weight:800;color:var(--success)">Rp 0</span>
+
+        <!-- STEP 2c: Gabungkan Pesanan -->
+        <div id="pay-step-gabungkan" style="display:none">
+          <div style="font-size:13px;color:var(--text-muted);margin-bottom:12px">Pilih pesanan yang ingin digabungkan:</div>
+          <div id="gabungkan-list" style="max-height:300px;overflow-y:auto">
+            <div style="text-align:center;padding:20px;color:var(--text-muted)">Memuat daftar pesanan...</div>
+          </div>
         </div>
       </div>
+
       <div class="modal-footer">
-        <button class="btn btn-secondary" onclick="closeModal('modal-payment')">Batal</button>
-        <button class="btn btn-primary" onclick="processPayment()"><span class="material-icons-round">check</span>
-          Proses Bayar</button>
+        <button class="btn btn-secondary" id="pay-btn-close" onclick="closeModal('modal-payment')">Batal</button>
+        <button class="btn btn-secondary" id="pay-btn-kembali" onclick="goBackToMethodSelect()" style="display:none">
+          <span class="material-icons-round">arrow_back</span> Kembali
+        </button>
+        <button class="btn btn-primary" id="pay-btn-bayar" onclick="processPayment()" style="display:none">
+          <span class="material-icons-round">check</span> Proses Bayar
+        </button>
+        <button class="btn btn-primary" id="pay-btn-buat" onclick="submitBuatPesanan()" style="display:none">
+          <span class="material-icons-round">receipt_long</span> Buat Pesanan
+        </button>
       </div>
     </div>
   </div>
 
   <!-- ===== MODAL: SUCCESS ===== -->
   <div id="modal-success" class="modal-overlay" onclick="if(event.target===this)closeModal('modal-success')">
-    <div class="modal" style="max-width:400px">
+    <div class="modal" style="max-width:420px">
       <div class="modal-body" id="modal-success-body"></div>
-      <div class="modal-footer" style="justify-content:center;gap:8px;">
-        <button class="btn btn-secondary" onclick="printReceipt()"><span class="material-icons-round">print</span> Cetak
-          Struk</button>
+      <div class="modal-footer" id="modal-success-footer" style="justify-content:center;gap:8px;">
+        <button class="btn btn-secondary" onclick="printReceipt()"><span class="material-icons-round">print</span> Cetak Struk</button>
         <button class="btn btn-primary" onclick="closeModal('modal-success')">Selesai</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MODAL: BAYAR PESANAN (dari Daftar Pesanan) ===== -->
+  <div id="modal-bayar-pesanan" class="modal-overlay" onclick="if(event.target===this)closeModal('modal-bayar-pesanan')">
+    <div class="modal" style="max-width:440px">
+      <div class="modal-header">
+        <h3 class="modal-title"><span class="material-icons-round" style="font-size:18px;vertical-align:middle;color:var(--primary)">payments</span> Proses Pembayaran</h3>
+        <button class="modal-close" onclick="closeModal('modal-bayar-pesanan')"><span class="material-icons-round">close</span></button>
+      </div>
+      <div class="modal-body">
+        <div id="bayar-pesanan-summary"></div>
+        <div class="form-group">
+          <label class="form-label">Kasir yang Melayani</label>
+          <select id="bayar-pesanan-kasir" class="form-control form-select"></select>
+        </div>
+        <div class="form-label" style="margin-bottom:8px">Metode Pembayaran</div>
+        <div class="payment-methods">
+          <div class="payment-option selected" data-method="Cash" onclick="selectBayarPesananMethod('Cash',this)">
+            <span class="material-icons-round">payments</span> Cash
+          </div>
+          <div class="payment-option" data-method="QRIS" onclick="selectBayarPesananMethod('QRIS',this)">
+            <span class="material-icons-round">qr_code_2</span> QRIS
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Jumlah Bayar</label>
+          <input type="number" id="bayar-pesanan-amount" class="form-control" placeholder="Masukkan jumlah..." oninput="calcBayarPesananChange()" style="font-size:18px;font-weight:600;">
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--bg);border-radius:var(--radius-sm);">
+          <span style="font-weight:500">Kembalian</span>
+          <span id="bayar-pesanan-change" style="font-size:20px;font-weight:800;color:var(--success)">Rp 0</span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('modal-bayar-pesanan')">Batal</button>
+        <button class="btn btn-primary" onclick="submitBayarPesanan()">
+          <span class="material-icons-round">check</span> Proses Bayar
+        </button>
       </div>
     </div>
   </div>
@@ -246,10 +342,6 @@
             </div>
           </div>
           <div class="form-group">
-            <label class="form-label">Stok Awal</label>
-            <input type="number" id="produk-stok" class="form-control" min="0" value="0" placeholder="0">
-          </div>
-          <div class="form-group">
             <label class="form-label">Deskripsi</label>
             <textarea id="produk-deskripsi" class="form-control" rows="2"
               placeholder="Deskripsi singkat produk..."></textarea>
@@ -267,6 +359,57 @@
               <option value="Nonaktif">❌ Nonaktif — Disembunyikan dari kasir</option>
             </select>
           </div>
+
+          <!-- ===== BAHAN BAKU & RESEP SECTION ===== -->
+          <div style="border-top:1px solid var(--border);margin-top:16px;padding-top:16px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+              <label class="form-label" style="margin:0;font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px;">
+                <span class="material-icons-round" style="font-size:16px;color:var(--primary)">kitchen</span>
+                Bahan Baku & Resep
+              </label>
+              <span style="font-size:11px;color:var(--text-muted)">Wajib diisi agar stok produk otomatis dari bahan baku</span>
+            </div>
+
+            <!-- Tambah Bahan Tetap -->
+            <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Bahan Tetap (wajib pakai)</div>
+            <div style="display:flex;gap:8px;margin-bottom:10px;">
+              <div style="flex:1;position:relative;">
+                <input type="text" id="resep-search-bahan" class="form-control" placeholder="Cari bahan baku tetap..."
+                  oninput="filterResepBahan()" style="padding-right:32px" autocomplete="off">
+                <span class="material-icons-round" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--text-muted);pointer-events:none">search</span>
+                <div id="resep-bahan-dropdown" style="display:none;position:absolute;top:calc(100% + 6px);left:0;right:0;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);z-index:1100;max-height:220px;overflow-y:auto;box-shadow:var(--shadow-lg)"></div>
+              </div>
+            </div>
+
+            <!-- Tambah Bahan Pilihan (varian/rasa) -->
+            <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Bahan Pilihan (user pilih rasa/varian)</div>
+            <div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:10px;padding:10px;background:var(--bg);border-radius:var(--radius-sm);border:1px dashed var(--border)">
+              <div style="flex:1">
+                <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:3px">Grup / Brand</label>
+                <input type="text" id="resep-pilihan-grup" class="form-control" placeholder="Contoh: Indomie" list="bb-grup-list" style="font-size:13px" autocomplete="off">
+              </div>
+              <div style="width:80px">
+                <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:3px">Qty/porsi</label>
+                <input type="number" id="resep-pilihan-qty" class="form-control" min="0.1" step="0.1" value="1" style="font-size:13px">
+              </div>
+              <button type="button" class="btn btn-sm btn-secondary" onclick="addGrupPilihanToResep()" style="white-space:nowrap">
+                <span class="material-icons-round" style="font-size:14px">tune</span> + Pilihan
+              </button>
+            </div>
+
+            <!-- Resep list -->
+            <div id="resep-list" style="min-height:40px;">
+              <div style="text-align:center;padding:12px;color:var(--text-muted);font-size:12px;background:var(--bg);border-radius:var(--radius-sm)">
+                Belum ada bahan baku ditambahkan. Produk tidak bisa dijual sampai resep diisi.
+              </div>
+            </div>
+
+            <!-- Stok porsi preview -->
+            <div id="resep-stok-preview" style="display:none;margin-top:8px;padding:8px 12px;background:var(--primary-light,#e0f2fe);border-radius:var(--radius-sm);font-size:12px;">
+              <span class="material-icons-round" style="font-size:14px;vertical-align:middle;color:var(--primary)">info</span>
+              <span id="resep-stok-preview-text" style="color:var(--primary);font-weight:600"></span>
+            </div>
+          </div>
         </form>
       </div>
       <div class="modal-footer">
@@ -276,6 +419,134 @@
       </div>
     </div>
   </div>
+
+  <!-- ===== MODAL: BAHAN BAKU ===== -->
+  <div id="modal-bahan-baku" class="modal-overlay" onclick="if(event.target===this)closeModal('modal-bahan-baku')">
+    <div class="modal" style="max-width:480px">
+      <div class="modal-header">
+        <h3 class="modal-title" id="bb-form-title">Tambah Bahan Baku</h3>
+        <button class="modal-close" onclick="closeModal('modal-bahan-baku')"><span class="material-icons-round">close</span></button>
+      </div>
+      <div class="modal-body">
+        <form id="bb-form" onsubmit="event.preventDefault();saveBahanBaku()">
+          <input type="hidden" id="bb-id-edit">
+          <div class="form-group">
+            <label class="form-label">Nama Bahan Baku *</label>
+            <input type="text" id="bb-nama" class="form-control" required placeholder="Contoh: Nutrisari Jeruk">
+          </div>
+          <div class="grid-2col" style="gap:12px">
+            <div class="form-group">
+              <label class="form-label">Grup / Brand</label>
+              <input type="text" id="bb-grup" class="form-control" placeholder="Contoh: Nutrisari" list="bb-grup-list">
+              <datalist id="bb-grup-list"></datalist>
+              <small style="color:var(--text-muted);font-size:11px">Kelompokkan bahan sejenis (opsional)</small>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Satuan *</label>
+              <select id="bb-satuan" class="form-control form-select" required>
+                <option value="saset">Saset</option>
+                <option value="bungkus">Bungkus</option>
+                <option value="gr">Gram (gr)</option>
+                <option value="kg">Kilogram (kg)</option>
+                <option value="ml">Mililiter (ml)</option>
+                <option value="liter">Liter</option>
+                <option value="pcs">Pcs</option>
+                <option value="botol">Botol</option>
+                <option value="kaleng">Kaleng</option>
+              </select>
+            </div>
+          </div>
+          <div id="bb-stok-awal-group" class="form-group">
+            <label class="form-label">Stok Awal</label>
+            <input type="number" id="bb-stok-awal" class="form-control" min="0" value="0" placeholder="0">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Stok Minimum (Alert)</label>
+            <input type="number" id="bb-stok-minimum" class="form-control" min="0" value="0" placeholder="0">
+            <small style="color:var(--text-muted);font-size:11px">Sistem akan memberi peringatan jika stok di bawah nilai ini</small>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Keterangan</label>
+            <input type="text" id="bb-keterangan" class="form-control" placeholder="Catatan tambahan (opsional)">
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('modal-bahan-baku')">Batal</button>
+        <button class="btn btn-primary" onclick="saveBahanBaku()"><span class="material-icons-round">save</span> Simpan</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MODAL: RESTOK BAHAN BAKU ===== -->
+  <div id="modal-restok-bahan" class="modal-overlay" onclick="if(event.target===this)closeModal('modal-restok-bahan')">
+    <div class="modal" style="max-width:400px">
+      <div class="modal-header">
+        <h3 class="modal-title">Tambah Stok Bahan Baku</h3>
+        <button class="modal-close" onclick="closeModal('modal-restok-bahan')"><span class="material-icons-round">close</span></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="restok-bahan-id">
+        <div style="margin-bottom:16px;padding:12px;background:var(--bg);border-radius:var(--radius-sm);">
+          <div style="font-size:12px;color:var(--text-muted)">Bahan Baku</div>
+          <div style="font-size:16px;font-weight:700" id="restok-bahan-nama">—</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Jumlah Masuk *</label>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input type="number" id="restok-jumlah" class="form-control" min="1" placeholder="0" style="flex:1">
+            <span id="restok-satuan-label" style="font-size:14px;font-weight:600;color:var(--primary);min-width:50px">saset</span>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Keterangan</label>
+          <input type="text" id="restok-keterangan" class="form-control" placeholder="Contoh: Pembelian dari supplier">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('modal-restok-bahan')">Batal</button>
+        <button class="btn btn-primary" onclick="saveRestok()"><span class="material-icons-round">add_circle</span> Simpan Restok</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MODAL: VARIANT PICKER ===== -->
+  <div id="modal-variant-picker" class="modal-overlay" onclick="if(event.target===this){closeModal('modal-variant-picker');APP.variantPickerState=null;}">
+    <div class="modal" style="max-width:420px">
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title" id="variant-picker-title">Pilih Varian</h3>
+          <div id="variant-picker-step" style="font-size:11px;color:var(--text-muted);margin-top:2px"></div>
+        </div>
+        <button class="modal-close" onclick="closeModal('modal-variant-picker');APP.variantPickerState=null;"><span class="material-icons-round">close</span></button>
+      </div>
+      <div class="modal-body" style="padding:12px 16px">
+        <div id="variant-picker-options" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;min-height:80px"></div>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    .variant-option {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      padding: 14px 10px;
+      border: 2px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--card-bg);
+      cursor: pointer;
+      transition: border-color .15s, background .15s;
+      text-align: center;
+    }
+    .variant-option:hover:not(:disabled) { border-color: var(--primary); background: var(--primary-light, #e0f2fe); }
+    .variant-option-habis { opacity: .45; cursor: not-allowed !important; }
+    .variant-option-name { font-size: 13px; font-weight: 600; color: var(--text); }
+    .variant-option-stock { font-size: 11px; color: var(--success); }
+    .variant-option-stock.habis { color: var(--danger); }
+  </style>
 
   <!-- ===== MODAL: KASIR ===== -->
   <div id="modal-kasir" class="modal-overlay" onclick="if(event.target===this)closeModal('modal-kasir')">

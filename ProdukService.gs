@@ -12,19 +12,24 @@
 function getProduk() {
   try {
     var data = getSheetDataSafe(SHEET_PRODUK);
+    var stokResult = getStokDariResepSemuaProduk();
+    var stokMap = stokResult.stok || {};
     var produkAktif = [];
     
     for (var i = 0; i < data.length; i++) {
       if (data[i].Status === 'Aktif') {
+        var stokOtomatis = stokMap[data[i].ID_Produk];
         produkAktif.push({
           id: data[i].ID_Produk,
           nama: data[i].Nama_Produk,
           kategori: data[i].Kategori,
           harga: Number(data[i].Harga),
-          stok: Number(data[i].Stok),
+          stok: stokOtomatis !== undefined ? Number(stokOtomatis) : 0,
+          stokDariBahan: stokOtomatis !== undefined ? Number(stokOtomatis) : 0,
           deskripsi: data[i].Deskripsi,
           gambar: data[i].URL_Gambar,
           status: data[i].Status,
+          pakaiResep: true,
           _rowIndex: data[i]._rowIndex
         });
       }
@@ -43,18 +48,23 @@ function getProduk() {
 function getAllProdukAdmin() {
   try {
     var data = getSheetDataSafe(SHEET_PRODUK);
+    var stokResult = getStokDariResepSemuaProduk();
+    var stokMap = stokResult.stok || {};
     var result = [];
     
     for (var i = 0; i < data.length; i++) {
+      var stokOtomatis = stokMap[data[i].ID_Produk];
       result.push({
         id: data[i].ID_Produk,
         nama: data[i].Nama_Produk,
         kategori: data[i].Kategori,
         harga: Number(data[i].Harga),
-        stok: Number(data[i].Stok),
+        stok: stokOtomatis !== undefined ? Number(stokOtomatis) : 0,
+        stokDariBahan: stokOtomatis !== undefined ? Number(stokOtomatis) : 0,
         deskripsi: data[i].Deskripsi,
         gambar: data[i].URL_Gambar,
         status: data[i].Status,
+        pakaiResep: true,
         tanggalDibuat: data[i].Tanggal_Dibuat ? String(data[i].Tanggal_Dibuat) : '',
         tanggalDiupdate: data[i].Tanggal_Diupdate ? String(data[i].Tanggal_Diupdate) : '',
         _rowIndex: data[i]._rowIndex
@@ -73,18 +83,23 @@ function getAllProdukAdmin() {
 function getProdukById(id) {
   try {
     var data = getSheetData(SHEET_PRODUK);
+    var stokResult = getStokDariResepSemuaProduk();
+    var stokMap = stokResult.stok || {};
     
     for (var i = 0; i < data.length; i++) {
       if (data[i].ID_Produk === id) {
+        var stokOtomatis = stokMap[data[i].ID_Produk];
         return successResponse({
           id: data[i].ID_Produk,
           nama: data[i].Nama_Produk,
           kategori: data[i].Kategori,
           harga: Number(data[i].Harga),
-          stok: Number(data[i].Stok),
+          stok: stokOtomatis !== undefined ? Number(stokOtomatis) : 0,
+          stokDariBahan: stokOtomatis !== undefined ? Number(stokOtomatis) : 0,
           deskripsi: data[i].Deskripsi,
           gambar: data[i].URL_Gambar,
           status: data[i].Status,
+          pakaiResep: true,
           _rowIndex: data[i]._rowIndex
         });
       }
@@ -98,7 +113,7 @@ function getProdukById(id) {
 
 /**
  * Menambahkan produk baru
- * @param {Object} data - {nama, kategori, harga, stok, deskripsi, gambar}
+ * @param {Object} data - {nama, kategori, harga, deskripsi, gambar}
  */
 function tambahProduk(data) {
   try {
@@ -126,18 +141,13 @@ function tambahProduk(data) {
       data.nama,
       data.kategori,
       Number(data.harga),
-      Number(data.stok) || 0,
+      0,
       data.deskripsi || '',
       data.gambar || '',
       'Aktif',
       now,
       now
     ]);
-    
-    // Log stok awal jika ada
-    if (Number(data.stok) > 0) {
-      logStokChange(idBaru, data.nama, 0, Number(data.stok), Number(data.stok), 'Masuk', 'Stok awal produk baru', 'Sistem');
-    }
     
     return successResponse({ id: idBaru }, 'Produk "' + data.nama + '" berhasil ditambahkan');
   } catch (e) {
@@ -147,7 +157,7 @@ function tambahProduk(data) {
 
 /**
  * Mengedit produk
- * @param {Object} data - {id, nama, kategori, harga, stok, deskripsi, gambar}
+ * @param {Object} data - {id, nama, kategori, harga, deskripsi, gambar}
  */
 function editProduk(data) {
   try {
@@ -168,14 +178,12 @@ function editProduk(data) {
     for (var i = 0; i < allData.length; i++) {
       if (allData[i].ID_Produk === data.id) {
         var rowIndex = allData[i]._rowIndex;
-        var oldStok = Number(allData[i].Stok);
-        var newStok = Number(data.stok);
         
         // Update kolom produk
         sheet.getRange(rowIndex, 2).setValue(data.nama);
         sheet.getRange(rowIndex, 3).setValue(data.kategori);
         sheet.getRange(rowIndex, 4).setValue(Number(data.harga));
-        sheet.getRange(rowIndex, 5).setValue(newStok);
+        sheet.getRange(rowIndex, 5).setValue(0);
         sheet.getRange(rowIndex, 6).setValue(data.deskripsi || '');
         sheet.getRange(rowIndex, 7).setValue(data.gambar || '');
         // Update Status jika dikirim dari frontend
@@ -183,12 +191,6 @@ function editProduk(data) {
           sheet.getRange(rowIndex, 8).setValue(data.status);
         }
         sheet.getRange(rowIndex, 10).setValue(new Date()); // Tanggal_Diupdate
-        
-        // Log perubahan stok jika berubah
-        if (oldStok !== newStok) {
-          var perubahan = newStok - oldStok;
-          logStokChange(data.id, data.nama, oldStok, perubahan, newStok, 'Penyesuaian', 'Edit produk', 'Sistem');
-        }
         
         return successResponse({ id: data.id }, 'Produk "' + data.nama + '" berhasil diupdate');
       }

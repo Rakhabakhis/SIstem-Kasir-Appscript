@@ -50,35 +50,7 @@ function setupDatabase() {
       'ID_Produk', 'Nama_Produk', 'Kategori', 'Harga', 'Stok',
       'Deskripsi', 'URL_Gambar', 'Status', 'Tanggal_Dibuat', 'Tanggal_Diupdate'
     ]);
-    
-    // Data contoh produk
-    var sampleProduk = [
-      ['PRD-0001', 'Classic Beef Burger', 'Makanan', 35000, 24,
-       'Daging sapi asli, keju, sayur', 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=300&h=300&fit=crop', 'Aktif', new Date(), new Date()],
-      ['PRD-0002', 'Double Cheese Burger', 'Makanan', 55000, 18,
-       'Ekstra keju lumer', 'https://images.unsplash.com/photo-1553979459-d2229ba7433b?w=300&h=300&fit=crop', 'Aktif', new Date(), new Date()],
-      ['PRD-0003', 'French Fries Large', 'Snack', 20000, 50,
-       'Kentang goreng renyah', 'https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=300&h=300&fit=crop', 'Aktif', new Date(), new Date()],
-      ['PRD-0004', 'Iced Caramel Latte', 'Minuman', 28000, 45,
-       'Kopi susu karamel dingin', 'https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=300&h=300&fit=crop', 'Aktif', new Date(), new Date()],
-      ['PRD-0005', 'Iced Lemon Tea', 'Minuman', 15000, 60,
-       'Teh lemon segar dingin', 'https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=300&h=300&fit=crop', 'Aktif', new Date(), new Date()],
-      ['PRD-0006', 'Iced Americano', 'Minuman', 22000, 40,
-       'Kopi hitam dingin', 'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?w=300&h=300&fit=crop', 'Aktif', new Date(), new Date()],
-      ['PRD-0007', 'Chicken Wings (6 pcs)', 'Makanan', 32000, 30,
-       'Sayap ayam goreng krispy', 'https://images.unsplash.com/photo-1567620832903-9fc6debc209f?w=300&h=300&fit=crop', 'Aktif', new Date(), new Date()],
-      ['PRD-0008', 'Chocolate Milkshake', 'Minuman', 25000, 35,
-       'Milkshake coklat premium', 'https://images.unsplash.com/photo-1572490122747-3968b75cc699?w=300&h=300&fit=crop', 'Aktif', new Date(), new Date()],
-      ['PRD-0009', 'Brownies', 'Dessert', 18000, 20,
-       'Brownies coklat lembut', 'https://images.unsplash.com/photo-1606313564200-e75d5e30476c?w=300&h=300&fit=crop', 'Aktif', new Date(), new Date()],
-      ['PRD-0010', 'Paket Hemat 1', 'Paket Hemat', 45000, 99,
-       'Burger + Fries + Drink', 'https://images.unsplash.com/photo-1594212699903-ec8a3eca50f5?w=300&h=300&fit=crop', 'Aktif', new Date(), new Date()]
-    ];
-    
-    for (var i = 0; i < sampleProduk.length; i++) {
-      sheetProduk.appendRow(sampleProduk[i]);
-    }
-    
+
     // Format header
     formatHeader(sheetProduk);
     sheetProduk.setColumnWidth(1, 100);
@@ -111,17 +83,7 @@ function setupDatabase() {
     formatHeader(sheetDetail);
   }
   
-  // === Sheet 4: LogStok ===
-  var sheetLog = getOrCreateSheet(ss, SHEET_LOG_STOK);
-  if (sheetLog.getLastRow() === 0) {
-    sheetLog.appendRow([
-      'ID_Log', 'Tanggal', 'ID_Produk', 'Nama_Produk',
-      'Stok_Sebelum', 'Perubahan', 'Stok_Sesudah', 'Tipe', 'Keterangan', 'Diupdate_Oleh'
-    ]);
-    formatHeader(sheetLog);
-  }
-  
-  // === Sheet 5: Pengaturan ===
+  // === Sheet 4: Pengaturan ===
   var sheetPengaturan = getOrCreateSheet(ss, SHEET_PENGATURAN);
   if (sheetPengaturan.getLastRow() === 0) {
     sheetPengaturan.appendRow(['Key', 'Value']);
@@ -133,8 +95,7 @@ function setupDatabase() {
       ['pajak_persen', 10],
       ['pajak_aktif', 'Ya'],
       ['id_transaksi_terakhir', 0],
-      ['id_produk_terakhir', 10],
-      ['id_log_terakhir', 0],
+      ['id_produk_terakhir', 0],
       ['id_detail_terakhir', 0],
       ['id_kasir_terakhir', 1]
     ];
@@ -147,7 +108,7 @@ function setupDatabase() {
     sheetPengaturan.setColumnWidth(2, 250);
   }
   
-  // === Sheet 6: Kasir ===
+  // === Sheet 5: Kasir ===
   var sheetKasir = getOrCreateSheet(ss, SHEET_KASIR);
   if (sheetKasir.getLastRow() === 0) {
     sheetKasir.appendRow(['ID_Kasir', 'Nama', 'PIN', 'Role', 'Status']);
@@ -160,16 +121,100 @@ function setupDatabase() {
     sheetKasir.setColumnWidth(5, 80);
   }
   
+  // === Sheet 6: BahanBaku ===
+  var sheetBahanBaku = getOrCreateSheet(ss, SHEET_BAHAN_BAKU);
+  if (sheetBahanBaku.getLastRow() === 0) {
+    sheetBahanBaku.appendRow([
+      'ID_Bahan', 'Nama_Bahan', 'Grup', 'Stok', 'Satuan',
+      'Stok_Minimum', 'Keterangan', 'Status', 'Tanggal_Dibuat', 'Tanggal_Diupdate'
+    ]);
+    var sampleBahan = [
+      ['BHN-0001', 'Indomie Goreng Original', 'Indomie', 50, 'bungkus', 10, 'Mie goreng instan', 'Aktif', new Date(), new Date()],
+      ['BHN-0002', 'Indomie Soto Ayam', 'Indomie', 30, 'bungkus', 5, 'Mie soto instan', 'Aktif', new Date(), new Date()],
+      ['BHN-0003', 'Nutrisari Jeruk', 'Nutrisari', 100, 'saset', 20, 'Minuman serbuk rasa jeruk', 'Aktif', new Date(), new Date()],
+      ['BHN-0004', 'Nutrisari Mangga', 'Nutrisari', 80, 'saset', 20, 'Minuman serbuk rasa mangga', 'Aktif', new Date(), new Date()],
+      ['BHN-0005', 'Gula Pasir', 'Bahan Dasar', 5000, 'gr', 500, 'Gula pasir putih', 'Aktif', new Date(), new Date()],
+      ['BHN-0006', 'Kopi Bubuk', 'Bahan Dasar', 2000, 'gr', 300, 'Kopi robusta', 'Aktif', new Date(), new Date()],
+      ['BHN-0007', 'Susu UHT', 'Bahan Dasar', 10000, 'ml', 1000, 'Susu full cream', 'Aktif', new Date(), new Date()]
+    ];
+    for (var i = 0; i < sampleBahan.length; i++) {
+      sheetBahanBaku.appendRow(sampleBahan[i]);
+    }
+    formatHeader(sheetBahanBaku);
+    sheetBahanBaku.setColumnWidth(1, 100);
+    sheetBahanBaku.setColumnWidth(2, 200);
+    sheetBahanBaku.setColumnWidth(3, 130);
+  }
+
+  // === Sheet 7: ResepProduk ===
+  var sheetResep = getOrCreateSheet(ss, SHEET_RESEP_PRODUK);
+  if (sheetResep.getLastRow() === 0) {
+    sheetResep.appendRow([
+      'ID_Resep', 'ID_Produk', 'Nama_Produk', 'ID_Bahan', 'Nama_Bahan',
+      'Jumlah_Per_Porsi', 'Satuan', 'Tipe_Bahan', 'Grup_Pilihan'
+    ]);
+    formatHeader(sheetResep);
+    sheetResep.setColumnWidth(1, 100);
+    sheetResep.setColumnWidth(2, 100);
+    sheetResep.setColumnWidth(3, 180);
+    sheetResep.setColumnWidth(4, 100);
+    sheetResep.setColumnWidth(5, 200);
+    sheetResep.setColumnWidth(8, 100);
+    sheetResep.setColumnWidth(9, 130);
+  } else {
+    // Migration: tambah kolom baru jika belum ada
+    migrasiResepKolom(sheetResep);
+  }
+
+  // === Sheet 8: LogBahanBaku ===
+  var sheetLogBahan = getOrCreateSheet(ss, SHEET_LOG_BAHAN_BAKU);
+  if (sheetLogBahan.getLastRow() === 0) {
+    sheetLogBahan.appendRow([
+      'ID_Log', 'Tanggal', 'ID_Bahan', 'Nama_Bahan',
+      'Stok_Sebelum', 'Perubahan', 'Stok_Sesudah',
+      'Tipe', 'Keterangan', 'ID_Transaksi', 'Diupdate_Oleh'
+    ]);
+    formatHeader(sheetLogBahan);
+  }
+
+  // Tambah counter ID baru ke Pengaturan jika belum ada
+  if (!getSetting('id_bahan_terakhir')) setSetting('id_bahan_terakhir', 7);
+  if (!getSetting('id_resep_terakhir')) setSetting('id_resep_terakhir', 0);
+  if (!getSetting('id_log_bahan_terakhir')) setSetting('id_log_bahan_terakhir', 0);
+
   // Hapus Sheet1 default jika ada
   var defaultSheet = ss.getSheetByName('Sheet1');
   if (defaultSheet && ss.getSheets().length > 1) {
     ss.deleteSheet(defaultSheet);
   }
+
+  // Hapus sheet legacy yang sudah tidak digunakan
+  cleanupLegacySheets(ss);
   
   // Set timezone ke WIB (Asia/Jakarta) agar tanggal di sheet sesuai
   fixTimezone();
   
-  SpreadsheetApp.getUi().alert('✅ Database berhasil diinisialisasi!\n\nSheet yang dibuat:\n- Produk (10 produk contoh)\n- Transaksi\n- DetailTransaksi\n- LogStok\n- Pengaturan\n- Kasir (1 admin default, PIN: 1234)\n\n⏰ Timezone spreadsheet sudah diset ke WIB (Asia/Jakarta).\n\nSekarang Anda bisa deploy sebagai Web App.');
+  var setupMessage = '✅ Database berhasil diinisialisasi!\n\nSheet yang dibuat:\n- Produk\n- Transaksi\n- DetailTransaksi\n- Pengaturan\n- Kasir (1 admin default, PIN: 1234)\n- BahanBaku (7 contoh bahan)\n- ResepProduk\n- LogBahanBaku\n\n⏰ Timezone spreadsheet sudah diset ke WIB (Asia/Jakarta).\n\nSekarang Anda bisa deploy sebagai Web App.';
+  try {
+    // Bisa gagal jika dipanggil dari context tanpa UI (mis. web app / trigger)
+    SpreadsheetApp.getUi().alert(setupMessage);
+  } catch (uiErr) {
+    Logger.log(setupMessage);
+    Logger.log('setupDatabase info: UI alert dilewati - ' + uiErr.message);
+  }
+}
+
+/**
+ * Hapus sheet lama/legacy yang sudah tidak dipakai
+ */
+function cleanupLegacySheets(ss) {
+  var legacyNames = ['logstok', 'LogStok', 'LOGSTOK', 'Log_Stok'];
+  for (var i = 0; i < legacyNames.length; i++) {
+    var sheet = ss.getSheetByName(legacyNames[i]);
+    if (sheet && ss.getSheets().length > 1) {
+      ss.deleteSheet(sheet);
+    }
+  }
 }
 
 /**
@@ -189,6 +234,42 @@ function fixTimezone() {
   }
 }
 
+
+/**
+ * Migrasi: tambah kolom Tipe_Bahan dan Grup_Pilihan ke ResepProduk jika belum ada
+ * Aman dijalankan berulang kali
+ */
+function migrasiResepKolom(sheet) {
+  try {
+    if (!sheet) sheet = getSheetSafe(SHEET_RESEP_PRODUK);
+    if (!sheet || sheet.getLastRow() === 0) return;
+    var headerRow = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    var hasTipe = false;
+    var hasGrup = false;
+    for (var i = 0; i < headerRow.length; i++) {
+      if (headerRow[i] === 'Tipe_Bahan') hasTipe = true;
+      if (headerRow[i] === 'Grup_Pilihan') hasGrup = true;
+    }
+    if (!hasTipe) {
+      var col = sheet.getLastColumn() + 1;
+      sheet.getRange(1, col).setValue('Tipe_Bahan');
+      // Fill existing rows with 'Tetap' as default
+      if (sheet.getLastRow() > 1) {
+        var fill = [];
+        for (var r = 2; r <= sheet.getLastRow(); r++) fill.push(['Tetap']);
+        sheet.getRange(2, col, fill.length, 1).setValues(fill);
+      }
+      formatHeader(sheet);
+    }
+    if (!hasGrup) {
+      var col2 = sheet.getLastColumn() + 1;
+      sheet.getRange(1, col2).setValue('Grup_Pilihan');
+      formatHeader(sheet);
+    }
+  } catch (e) {
+    Logger.log('migrasiResepKolom warning: ' + e.message);
+  }
+}
 
 /**
  * Mendapatkan atau membuat sheet
@@ -231,12 +312,58 @@ function getInitData() {
       if (produk[i].kategori) kategoriSet[produk[i].kategori] = true;
     }
     var kategoriList = ['Semua Produk'].concat(Object.keys(kategoriSet).sort());
-    
+
+    // Bahan baku aktif
+    var bahanRaw = getSheetDataSafe(SHEET_BAHAN_BAKU);
+    var bahanBakuAktif = [];
+    for (var b = 0; b < bahanRaw.length; b++) {
+      if (bahanRaw[b].Status === 'Aktif') {
+        bahanBakuAktif.push({
+          id: bahanRaw[b].ID_Bahan,
+          nama: bahanRaw[b].Nama_Bahan,
+          grup: bahanRaw[b].Grup || '',
+          stok: Number(bahanRaw[b].Stok) || 0,
+          satuan: bahanRaw[b].Satuan || '',
+          stokMinimum: Number(bahanRaw[b].Stok_Minimum) || 0
+        });
+      }
+    }
+
+    // Grup unik dari bahan baku
+    var grupSet = {};
+    for (var g = 0; g < bahanBakuAktif.length; g++) {
+      if (bahanBakuAktif[g].grup) grupSet[bahanBakuAktif[g].grup] = true;
+    }
+    var grupList = Object.keys(grupSet).sort();
+
+    // Kalkulasi stok dari bahan baku (mendukung Tetap dan Pilihan)
+    var stokResult = getStokDariResepSemuaProduk();
+    for (var j = 0; j < produk.length; j++) {
+      var idP = produk[j].id;
+      produk[j].stokDariBahan = stokResult.stok[idP] !== undefined ? stokResult.stok[idP] : 0;
+      produk[j].pakaiResep = true;
+    }
+
+    // Peta bahan Pilihan per produk (untuk variant picker di kasir)
+    // {idProduk: [{grupPilihan, jumlahPerPorsi, satuan}]}
+    var resepPilihan = stokResult.pilihanPerProduk || {};
+
+    // Hitung jumlah pesanan pending
+    var pesananCount = 0;
+    var trxRaw = getSheetDataSafe(SHEET_TRANSAKSI);
+    for (var p = 0; p < trxRaw.length; p++) {
+      if (trxRaw[p].Status === 'Pesanan') pesananCount++;
+    }
+
     return successResponse({
       settings: settings,
       produk: produk,
       kategori: kategoriList,
-      kasirList: kasirList
+      kasirList: kasirList,
+      bahanBaku: bahanBakuAktif,
+      grupList: grupList,
+      resepPilihan: resepPilihan,
+      pesananPendingCount: pesananCount
     });
   } catch (e) {
     return errorResponse('Gagal memuat data: ' + e.message);

@@ -171,35 +171,7 @@ async function createDatabase() {
   styleHeader(sheetDetail);
 
   // ============================================================
-  // SHEET 4: LOG STOK
-  // ============================================================
-  const sheetLog = workbook.addWorksheet('LogStok', {
-    properties: { tabColor: { argb: 'FFF59E0B' } }
-  });
-
-  sheetLog.columns = [
-    { header: 'ID_Log', key: 'id', width: 14 },
-    { header: 'Tanggal', key: 'tanggal', width: 18 },
-    { header: 'ID_Produk', key: 'idProduk', width: 14 },
-    { header: 'Nama_Produk', key: 'nama', width: 25 },
-    { header: 'Stok_Sebelum', key: 'sebelum', width: 14 },
-    { header: 'Perubahan', key: 'perubahan', width: 12 },
-    { header: 'Stok_Sesudah', key: 'sesudah', width: 14 },
-    { header: 'Tipe', key: 'tipe', width: 14 },
-    { header: 'Keterangan', key: 'keterangan', width: 25 },
-    { header: 'Diupdate_Oleh', key: 'oleh', width: 16 }
-  ];
-
-  sheetLog.getColumn('tanggal').numFmt = 'dd/mm/yyyy hh:mm';
-  for (let i = 2; i <= 500; i++) {
-    sheetLog.getCell(`H${i}`).dataValidation = {
-      type: 'list', allowBlank: true, formulae: ['"Masuk,Keluar,Penyesuaian"']
-    };
-  }
-  styleHeader(sheetLog);
-
-  // ============================================================
-  // SHEET 5: PENGATURAN
+  // SHEET 4: PENGATURAN
   // ============================================================
   const sheetPengaturan = workbook.addWorksheet('Pengaturan', {
     properties: { tabColor: { argb: 'FF64748B' } }
@@ -218,7 +190,6 @@ async function createDatabase() {
     { key: 'pajak_aktif', value: 'Ya' },
     { key: 'id_transaksi_terakhir', value: 0 },
     { key: 'id_produk_terakhir', value: 10 },
-    { key: 'id_log_terakhir', value: 0 },
     { key: 'id_detail_terakhir', value: 0 },
     { key: 'id_kasir_terakhir', value: 1 }
   ];
@@ -240,7 +211,7 @@ async function createDatabase() {
   styleHeader(sheetPengaturan);
 
   // ============================================================
-  // SHEET 6: KASIR
+  // SHEET 5: KASIR
   // ============================================================
   const sheetKasir = workbook.addWorksheet('Kasir', {
     properties: { tabColor: { argb: 'FF22C55E' } }
@@ -274,6 +245,100 @@ async function createDatabase() {
   styleHeader(sheetKasir);
 
   // ============================================================
+  // SHEET 6: BAHAN BAKU
+  // ============================================================
+  const sheetBahanBaku = workbook.addWorksheet('BahanBaku', {
+    properties: { tabColor: { argb: 'FF7C3AED' } }
+  });
+
+  sheetBahanBaku.columns = [
+    { header: 'ID_Bahan', key: 'id', width: 14 },
+    { header: 'Nama_Bahan', key: 'nama', width: 28 },
+    { header: 'Grup', key: 'grup', width: 18 },
+    { header: 'Stok', key: 'stok', width: 12 },
+    { header: 'Satuan', key: 'satuan', width: 14 },
+    { header: 'Stok_Minimum', key: 'stokMinimum', width: 16 },
+    { header: 'Keterangan', key: 'keterangan', width: 30 },
+    { header: 'Status', key: 'status', width: 12 },
+    { header: 'Tanggal_Dibuat', key: 'dibuat', width: 20 },
+    { header: 'Tanggal_Diupdate', key: 'diupdate', width: 20 }
+  ];
+
+  const bahanBakuData = [
+    { id: 'BHN-0001', nama: 'Indomie Goreng Original', grup: 'Indomie', stok: 50, satuan: 'bungkus', stokMinimum: 10, keterangan: 'Mie goreng instan', status: 'Aktif', dibuat: new Date(), diupdate: new Date() },
+    { id: 'BHN-0002', nama: 'Indomie Soto Ayam', grup: 'Indomie', stok: 30, satuan: 'bungkus', stokMinimum: 5, keterangan: 'Mie soto instan', status: 'Aktif', dibuat: new Date(), diupdate: new Date() },
+    { id: 'BHN-0003', nama: 'Nutrisari Jeruk', grup: 'Nutrisari', stok: 100, satuan: 'saset', stokMinimum: 20, keterangan: 'Minuman serbuk rasa jeruk', status: 'Aktif', dibuat: new Date(), diupdate: new Date() },
+    { id: 'BHN-0004', nama: 'Nutrisari Mangga', grup: 'Nutrisari', stok: 80, satuan: 'saset', stokMinimum: 20, keterangan: 'Minuman serbuk rasa mangga', status: 'Aktif', dibuat: new Date(), diupdate: new Date() },
+    { id: 'BHN-0005', nama: 'Gula Pasir', grup: 'Bahan Dasar', stok: 5000, satuan: 'gr', stokMinimum: 500, keterangan: 'Gula pasir putih', status: 'Aktif', dibuat: new Date(), diupdate: new Date() },
+    { id: 'BHN-0006', nama: 'Kopi Bubuk', grup: 'Bahan Dasar', stok: 2000, satuan: 'gr', stokMinimum: 300, keterangan: 'Kopi robusta', status: 'Aktif', dibuat: new Date(), diupdate: new Date() },
+    { id: 'BHN-0007', nama: 'Susu UHT', grup: 'Bahan Dasar', stok: 10000, satuan: 'ml', stokMinimum: 1000, keterangan: 'Susu full cream', status: 'Aktif', dibuat: new Date(), diupdate: new Date() }
+  ];
+
+  bahanBakuData.forEach(d => {
+    const row = sheetBahanBaku.addRow(d);
+    styleDataRow(row);
+  });
+
+  for (let i = 2; i <= 200; i++) {
+    sheetBahanBaku.getCell(`E${i}`).dataValidation = {
+      type: 'list', allowBlank: true, formulae: ['"saset,bungkus,gr,kg,ml,liter,pcs,botol,kaleng"']
+    };
+    sheetBahanBaku.getCell(`H${i}`).dataValidation = {
+      type: 'list', allowBlank: true, formulae: ['"Aktif,Nonaktif"']
+    };
+  }
+  styleHeader(sheetBahanBaku);
+
+  // ============================================================
+  // SHEET 7: RESEP PRODUK
+  // ============================================================
+  const sheetResep = workbook.addWorksheet('ResepProduk', {
+    properties: { tabColor: { argb: 'FF059669' } }
+  });
+
+  sheetResep.columns = [
+    { header: 'ID_Resep', key: 'id', width: 14 },
+    { header: 'ID_Produk', key: 'idProduk', width: 14 },
+    { header: 'Nama_Produk', key: 'namaProduk', width: 25 },
+    { header: 'ID_Bahan', key: 'idBahan', width: 14 },
+    { header: 'Nama_Bahan', key: 'namaBahan', width: 28 },
+    { header: 'Jumlah_Per_Porsi', key: 'jumlah', width: 18 },
+    { header: 'Satuan', key: 'satuan', width: 14 },
+    { header: 'Tipe_Bahan', key: 'tipeBahan', width: 14 },
+    { header: 'Grup_Pilihan', key: 'grupPilihan', width: 18 }
+  ];
+
+  styleHeader(sheetResep);
+
+  // ============================================================
+  // SHEET 8: LOG BAHAN BAKU
+  // ============================================================
+  const sheetLogBahan = workbook.addWorksheet('LogBahanBaku', {
+    properties: { tabColor: { argb: 'FFF59E0B' } }
+  });
+
+  sheetLogBahan.columns = [
+    { header: 'ID_Log', key: 'id', width: 14 },
+    { header: 'Tanggal', key: 'tanggal', width: 20 },
+    { header: 'ID_Bahan', key: 'idBahan', width: 14 },
+    { header: 'Nama_Bahan', key: 'namaBahan', width: 28 },
+    { header: 'Stok_Sebelum', key: 'stokSebelum', width: 15 },
+    { header: 'Perubahan', key: 'perubahan', width: 14 },
+    { header: 'Stok_Sesudah', key: 'stokSesudah', width: 15 },
+    { header: 'Tipe', key: 'tipe', width: 16 },
+    { header: 'Keterangan', key: 'keterangan', width: 30 },
+    { header: 'ID_Transaksi', key: 'idTransaksi', width: 16 },
+    { header: 'Diupdate_Oleh', key: 'oleh', width: 18 }
+  ];
+
+  for (let i = 2; i <= 1000; i++) {
+    sheetLogBahan.getCell(`H${i}`).dataValidation = {
+      type: 'list', allowBlank: true, formulae: ['"Masuk,Keluar,Penyesuaian"']
+    };
+  }
+  styleHeader(sheetLogBahan);
+
+  // ============================================================
   // SAVE FILE
   // ============================================================
   const filePath = path.join(__dirname, 'Database_Kasir_Template.xlsx');
@@ -282,12 +347,14 @@ async function createDatabase() {
   console.log('✅ File berhasil dibuat: Database_Kasir_Template.xlsx');
   console.log('');
   console.log('📋 Isi file:');
-  console.log('   Sheet 1: Produk        (10 produk contoh)');
-  console.log('   Sheet 2: Transaksi     (kosong, siap pakai)');
+  console.log('   Sheet 1: Produk          (10 produk contoh)');
+  console.log('   Sheet 2: Transaksi       (kosong, siap pakai)');
   console.log('   Sheet 3: DetailTransaksi (kosong, siap pakai)');
-  console.log('   Sheet 4: LogStok       (kosong, siap pakai)');
-  console.log('   Sheet 5: Pengaturan    (10 pengaturan default)');
-  console.log('   Sheet 6: Kasir         (1 admin, PIN: 1234)');
+  console.log('   Sheet 4: Pengaturan      (9 pengaturan default)');
+  console.log('   Sheet 5: Kasir           (1 admin, PIN: 1234)');
+  console.log('   Sheet 6: BahanBaku       (7 contoh bahan baku)');
+  console.log('   Sheet 7: ResepProduk     (kosong, siap pakai)');
+  console.log('   Sheet 8: LogBahanBaku    (kosong, siap pakai)');
   console.log('');
   console.log('📁 Lokasi: ' + filePath);
   console.log('');

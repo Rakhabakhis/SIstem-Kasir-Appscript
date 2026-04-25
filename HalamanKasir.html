@@ -88,9 +88,20 @@
 
     <!-- Actions -->
     <div class="order-actions">
-      <button class="btn btn-pay" onclick="openPaymentModal()">
-        <span class="material-icons-round">payments</span> Bayar Sekarang
-      </button>
+      <div class="quick-checkout-actions">
+        <button class="quick-checkout-btn primary" onclick="startCheckout('bayar-langsung')">
+          <span class="material-icons-round">payments</span>
+          <span>Bayar Langsung</span>
+        </button>
+        <button class="quick-checkout-btn" onclick="startCheckout('buat-pesanan')">
+          <span class="material-icons-round">receipt_long</span>
+          <span>Buat Pesanan</span>
+        </button>
+        <button class="quick-checkout-btn" onclick="startCheckout('gabungkan-pesanan')">
+          <span class="material-icons-round">add_shopping_cart</span>
+          <span>Gabungkan Pesanan</span>
+        </button>
+      </div>
     </div>
   </div>
 </div>

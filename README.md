@@ -6,7 +6,7 @@ Sistem Point of Sale lengkap menggunakan Google Apps Script & Google Sheets seba
 
 - **Halaman Kasir** - Tambah produk ke keranjang, proses pembayaran
 - **Manajemen Produk** - Tambah, edit, hapus produk (CRUD)
-- **Update Stok** - Kelola stok dengan log perubahan lengkap
+- **Bahan Baku & Resep** - Kelola bahan baku, hubungkan ke produk dengan resep, stok otomatis terpotong saat transaksi
 - **Laporan Transaksi** - Harian, mingguan, bulanan + breakdown pembayaran
 - **Responsive** - Tampilan optimal di desktop & mobile
 - **2 Metode Pembayaran** - Cash dan QRIS
@@ -45,8 +45,8 @@ Klik **"+"** → **Script** untuk membuat file .gs baru:
 | 2 | `Utils` | Helper functions |
 | 3 | `ProdukService` | CRUD produk |
 | 4 | `TransaksiService` | Proses transaksi |
-| 5 | `StokService` | Manajemen stok |
-| 6 | `LaporanService` | Generate laporan |
+| 5 | `LaporanService` | Generate laporan |
+| 6 | `BahanBakuService` | CRUD bahan baku, resep, dan log |
 
 > ⚠️ **PENTING**: Nama file TANPA ekstensi `.gs` (Apps Script otomatis menambahkan)
 
@@ -61,7 +61,7 @@ Klik **"+"** → **HTML** untuk membuat file HTML baru:
 | 3 | `JavaScript` | Client-side logic |
 | 4 | `HalamanKasir` | Halaman POS |
 | 5 | `HalamanProduk` | Manajemen produk |
-| 6 | `HalamanStok` | Update & log stok |
+| 6 | `HalamanBahanBaku` | Manajemen bahan baku & log |
 | 7 | `HalamanLaporan` | Laporan transaksi |
 | 8 | `HalamanPengaturan` | Pengaturan & manajemen kasir |
 
@@ -76,13 +76,13 @@ Buka setiap file dari folder proyek ini dan copy-paste isinya ke file yang sesua
 2. `Code.gs` → paste ke file `Code`
 3. `ProdukService.gs` → paste ke file `ProdukService`
 4. `TransaksiService.gs` → paste ke file `TransaksiService`
-5. `StokService.gs` → paste ke file `StokService`
-6. `LaporanService.gs` → paste ke file `LaporanService`
+5. `LaporanService.gs` → paste ke file `LaporanService`
+6. `BahanBakuService.gs` → paste ke file `BahanBakuService`
 7. `Stylesheet.html` → paste ke file `Stylesheet`
 8. `JavaScript.html` → paste ke file `JavaScript`
 9. `HalamanKasir.html` → paste ke file `HalamanKasir`
 10. `HalamanProduk.html` → paste ke file `HalamanProduk`
-11. `HalamanStok.html` → paste ke file `HalamanStok`
+11. `HalamanBahanBaku.html` → paste ke file `HalamanBahanBaku`
 12. `HalamanLaporan.html` → paste ke file `HalamanLaporan`
 13. `HalamanPengaturan.html` → paste ke file `HalamanPengaturan`
 14. `Index.html` → paste ke file `Index`
@@ -93,13 +93,15 @@ Buka setiap file dari folder proyek ini dan copy-paste isinya ke file yang sesua
 2. Klik tombol **▶ Run**
 3. Sistem akan minta izin - klik **Review Permissions** → **Allow**
 4. Tunggu sampai muncul dialog "✅ Database berhasil diinisialisasi!"
-5. Kembali ke Google Sheet - Anda akan melihat **6 sheet** baru:
+5. Kembali ke Google Sheet - Anda akan melihat **8 sheet** baru:
    - Produk (10 produk contoh)
    - Transaksi
    - DetailTransaksi
-   - LogStok
    - Pengaturan
    - **Kasir** (1 admin default, PIN: **1234**)
+   - **BahanBaku** (7 contoh bahan baku)
+   - **ResepProduk**
+   - **LogBahanBaku**
 
 ### Langkah 6: Deploy sebagai Web App
 
@@ -129,7 +131,7 @@ Buka setiap file dari folder proyek ini dan copy-paste isinya ke file yang sesua
 | B | Nama_Produk | Nama produk |
 | C | Kategori | Makanan / Minuman / Snack / Dessert / Paket Hemat |
 | D | Harga | Harga jual (Rp) |
-| E | Stok | Jumlah stok |
+| E | Stok | Kolom legacy (stok aktual dihitung otomatis dari BahanBaku + ResepProduk) |
 | F | Deskripsi | Deskripsi singkat |
 | G | URL_Gambar | URL gambar produk |
 | H | Status | Aktif / Nonaktif |
@@ -166,20 +168,6 @@ Buka setiap file dari folder proyek ini dan copy-paste isinya ke file yang sesua
 | G | Subtotal |
 | H | Catatan_Item |
 
-### Sheet: LogStok
-| Kolom | Header |
-|-------|--------|
-| A | ID_Log |
-| B | Tanggal |
-| C | ID_Produk |
-| D | Nama_Produk |
-| E | Stok_Sebelum |
-| F | Perubahan |
-| G | Stok_Sesudah |
-| H | Tipe (Masuk/Keluar/Penyesuaian) |
-| I | Keterangan |
-| J | Diupdate_Oleh |
-
 ### Sheet: Pengaturan
 | Key | Value |
 |-----|-------|
@@ -197,6 +185,68 @@ Buka setiap file dari folder proyek ini dan copy-paste isinya ke file yang sesua
 | C | PIN | PIN login (min. 4 digit) |
 | D | Role | Admin / Kasir |
 | E | Status | Aktif / Nonaktif |
+
+### Sheet: BahanBaku
+| Kolom | Header | Keterangan |
+|-------|--------|-------------|
+| A | ID_Bahan | BHN-0001, dst |
+| B | Nama_Bahan | Nama lengkap + varian (misal: "Nutrisari Jeruk") |
+| C | Grup | Brand/kategori untuk pengelompokan (misal: "Nutrisari") |
+| D | Stok | Jumlah stok saat ini |
+| E | Satuan | kg / gr / ml / saset / bungkus / pcs / botol / kaleng |
+| F | Stok_Minimum | Alert jika stok di bawah nilai ini |
+| G | Keterangan | Catatan opsional |
+| H | Status | Aktif / Nonaktif |
+| I | Tanggal_Dibuat | Timestamp |
+| J | Tanggal_Diupdate | Timestamp |
+
+### Sheet: ResepProduk
+| Kolom | Header | Keterangan |
+|-------|--------|-------------|
+| A | ID_Resep | RSP-0001, dst |
+| B | ID_Produk | FK ke sheet Produk |
+| C | Nama_Produk | Nama produk (denormalized) |
+| D | ID_Bahan | FK ke sheet BahanBaku |
+| E | Nama_Bahan | Nama bahan (denormalized) |
+| F | Jumlah_Per_Porsi | Jumlah bahan yang dibutuhkan per 1 porsi produk |
+| G | Satuan | Satuan sesuai bahan baku |
+
+### Sheet: LogBahanBaku
+| Kolom | Header | Keterangan |
+|-------|--------|-------------|
+| A | ID_Log | LBB-0001, dst |
+| B | Tanggal | Timestamp perubahan |
+| C | ID_Bahan | FK ke BahanBaku |
+| D | Nama_Bahan | Nama bahan (denormalized) |
+| E | Stok_Sebelum | Stok sebelum perubahan |
+| F | Perubahan | Positif = masuk, negatif = keluar |
+| G | Stok_Sesudah | Stok setelah perubahan |
+| H | Tipe | Masuk / Keluar / Penyesuaian |
+| I | Keterangan | Deskripsi perubahan |
+| J | ID_Transaksi | Referensi transaksi (jika dari penjualan) |
+| K | Diupdate_Oleh | Nama kasir/admin |
+
+---
+
+## 🥘 Fitur Bahan Baku
+
+### Cara Kerja
+1. **Tambah Bahan Baku** di menu "Bahan Baku" — isi nama, grup/brand, satuan, dan stok awal
+2. **Hubungkan ke Produk** — saat edit produk, tambahkan bahan baku ke bagian "Bahan Baku & Resep" beserta jumlah per porsi
+3. **Stok Otomatis Terpotong** — setiap transaksi, stok bahan baku berkurang sesuai resep
+4. **Stok Porsi Tampil di Kasir** — produk dengan resep menampilkan berapa porsi yang bisa dibuat
+
+### Contoh Resep
+| Produk | Bahan Baku | Jumlah Per Porsi | Artinya |
+|--------|-----------|-----------------|---------|
+| Indomie Goreng | Indomie Goreng Original | 1 bungkus | 1 transaksi = -1 bungkus |
+| Indomie Double | Indomie Goreng Original | 2 bungkus | 1 transaksi = -2 bungkus |
+| Nutrisari Jeruk | Nutrisari Jeruk | 1 saset | 1 transaksi = -1 saset |
+
+### Rekomendasi Multi-Varian (contoh Nutrisari)
+Setiap varian dibuat sebagai bahan baku terpisah dengan kolom **Grup** yang sama:
+- `BHN-0003` | Nutrisari Jeruk | Grup: **Nutrisari** | 100 saset
+- `BHN-0004` | Nutrisari Mangga | Grup: **Nutrisari** | 80 saset
 
 ---
 

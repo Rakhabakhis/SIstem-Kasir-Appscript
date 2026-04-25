@@ -808,6 +808,50 @@
     gap: 8px;
   }
 
+  .quick-checkout-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .quick-checkout-btn {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-card);
+    color: var(--text);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    transition: var(--transition);
+  }
+
+  .quick-checkout-btn .material-icons-round {
+    font-size: 18px;
+  }
+
+  .quick-checkout-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+    background: var(--primary-bg);
+  }
+
+  .quick-checkout-btn.primary {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #fff;
+  }
+
+  .quick-checkout-btn.primary:hover {
+    background: var(--primary-dark);
+    border-color: var(--primary-dark);
+    color: #fff;
+  }
+
   .order-actions-row {
     display: flex;
     gap: 8px;
@@ -2423,17 +2467,34 @@
   }
 
   /* === Log Stok Date Range Filter === */
+  .log-filter-row {
+    align-items: flex-end;
+    gap: 10px;
+    flex-wrap: nowrap;
+  }
+
+  .log-filter-row > .form-control,
+  .log-filter-row > .btn {
+    height: 42px;
+  }
+
+  .log-filter-row > .btn {
+    display: inline-flex;
+    align-items: center;
+  }
+
   .log-date-range {
     display: flex;
     align-items: flex-end;
     gap: 8px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
   }
 
   .log-date-field {
     display: flex;
     flex-direction: column;
     gap: 3px;
+    min-width: 172px;
   }
 
   .log-date-label {
@@ -2459,9 +2520,21 @@
   }
 
   @media (max-width: 768px) {
+    .log-filter-row {
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .log-filter-row > .form-control,
+    .log-filter-row > .btn {
+      flex: 1 1 100%;
+      width: 100% !important;
+    }
+
     .log-date-range {
       flex-basis: 100%;
       gap: 6px;
+      flex-wrap: wrap;
     }
   }
 
@@ -2764,6 +2837,7 @@
 
     .log-date-field {
       flex: 1;
+      min-width: 0;
     }
 
     /* Modal full width */
@@ -3348,13 +3422,6 @@
       display: none;
     }
 
-    /* --- Stok log table: hide less critical columns --- */
-    #page-stok .data-table th:nth-child(7),
-    #page-stok .data-table td:nth-child(7),
-    #page-stok .data-table th:nth-child(8),
-    #page-stok .data-table td:nth-child(8) {
-      display: none;
-    }
   }
 
   /* ============================================================
@@ -3400,6 +3467,272 @@
     .data-table td {
       padding: 6px 8px !important;
       font-size: 11px !important;
+    }
+  }
+
+  /* ============================================================
+     CHECKOUT METHOD CARDS (3-pilihan checkout)
+     ============================================================ */
+  .checkout-methods {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 4px;
+  }
+
+  .checkout-methods .checkout-method-card:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+
+  .checkout-method-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 14px 14px;
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-card);
+    cursor: pointer;
+    transition: border-color .18s, background .18s, transform .1s;
+    text-align: left;
+    user-select: none;
+  }
+
+  .checkout-method-card:hover {
+    border-color: var(--primary);
+    background: var(--primary-bg);
+  }
+
+  .checkout-method-card:active {
+    transform: scale(0.97);
+  }
+
+  .checkout-method-card.selected {
+    border-color: var(--primary);
+    background: var(--primary-bg);
+  }
+
+  .checkout-method-icon {
+    font-size: 22px;
+    color: var(--primary);
+  }
+
+  .checkout-method-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.2;
+  }
+
+  .checkout-method-desc {
+    font-size: 11px;
+    color: var(--text-muted);
+    line-height: 1.4;
+  }
+
+  /* ============================================================
+     CATATAN ITEM DI KERANJANG
+     ============================================================ */
+  .item-catatan-row {
+    margin-top: 4px;
+  }
+
+  .add-catatan-link {
+    font-size: 11px;
+    color: var(--primary);
+    cursor: pointer;
+    font-style: italic;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .add-catatan-link:hover {
+    color: var(--primary-dark);
+  }
+
+  .catatan-text {
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-style: italic;
+    cursor: pointer;
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .catatan-text:hover {
+    color: var(--primary);
+  }
+
+  .catatan-input {
+    width: 100%;
+    margin-top: 4px;
+    padding: 5px 8px;
+    border: 1px solid var(--primary);
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    outline: none;
+    color: var(--text);
+    background: var(--bg-card);
+  }
+
+  /* ============================================================
+     DAFTAR PESANAN PAGE
+     ============================================================ */
+  .pesanan-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 16px;
+    overflow: hidden;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+  }
+
+  .pesanan-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border-light);
+    background: var(--bg-card);
+    cursor: pointer;
+  }
+
+  .pesanan-chevron {
+    color: var(--text-muted);
+    transition: transform 0.2s ease;
+  }
+
+  .pesanan-chevron.expanded {
+    transform: rotate(180deg);
+  }
+
+  .pesanan-card-body {
+    display: none;
+  }
+
+  .pesanan-card-body.expanded {
+    display: block;
+  }
+
+  .pesanan-card-nama {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 2px;
+  }
+
+  .pesanan-card-meta {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+
+  .pesanan-card-items {
+    padding: 8px 16px 4px;
+    border-bottom: 0;
+  }
+
+  .pesanan-detail-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 0;
+    font-size: 13px;
+  }
+
+  .pesanan-detail-item + .pesanan-detail-item {
+    border-top: 1px solid var(--border-light);
+  }
+
+  .pesanan-detail-nama {
+    font-weight: 500;
+    color: var(--text);
+  }
+
+  .pesanan-detail-catatan {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-style: italic;
+    margin-top: 1px;
+  }
+
+  .pesanan-card-summary {
+    padding: 10px 16px;
+    background: var(--bg-card);
+    border-top: 1px solid var(--border-light);
+    border-bottom: 0;
+  }
+
+  .pesanan-card-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 12px 16px;
+    border-top: 1px solid var(--border-light);
+    background: var(--bg-card);
+  }
+
+  /* ============================================================
+     GABUNGKAN PESANAN LIST (dalam modal)
+     ============================================================ */
+  .gabungkan-item {
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+    background: var(--bg-card);
+  }
+
+  .gabungkan-item:hover {
+    border-color: var(--primary);
+    background: var(--primary-bg);
+  }
+
+  .gabungkan-item:last-child {
+    margin-bottom: 0;
+  }
+
+  .gabungkan-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+  }
+
+  /* ============================================================
+     PESANAN SUCCESS CARD (di modal sukses)
+     ============================================================ */
+  .pesanan-success-card {
+    background: var(--bg);
+    border-radius: var(--radius);
+    padding: 16px;
+    border: 1px solid var(--border);
+    text-align: left;
+    margin-bottom: 4px;
+  }
+
+  @media (max-width: 480px) {
+    .checkout-methods {
+      grid-template-columns: 1fr;
+    }
+    .checkout-methods .checkout-method-card:last-child:nth-child(odd) {
+      grid-column: auto;
+    }
+    .pesanan-card-actions {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .pesanan-card-actions .btn {
+      width: 100%;
+      justify-content: center;
     }
   }
 </style>

@@ -9,9 +9,11 @@
 const SHEET_PRODUK = 'Produk';
 const SHEET_TRANSAKSI = 'Transaksi';
 const SHEET_DETAIL_TRANSAKSI = 'DetailTransaksi';
-const SHEET_LOG_STOK = 'LogStok';
 const SHEET_PENGATURAN = 'Pengaturan';
 const SHEET_KASIR = 'Kasir';
+const SHEET_BAHAN_BAKU = 'BahanBaku';
+const SHEET_RESEP_PRODUK = 'ResepProduk';
+const SHEET_LOG_BAHAN_BAKU = 'LogBahanBaku';
 
 // ==================== SPREADSHEET ACCESS ====================
 
@@ -48,8 +50,10 @@ function getSheetSafe(sheetName) {
  */
 function getSheetData(sheetName) {
   var sheet = getSheet(sheetName);
-  var data = sheet.getDataRange().getValues();
-  if (data.length <= 1) return [];
+  var lastRow = sheet.getLastRow();
+  var lastCol = sheet.getLastColumn();
+  if (lastRow <= 1 || lastCol === 0) return [];
+  var data = sheet.getRange(1, 1, lastRow, lastCol).getValues();
   
   var headers = data[0];
   var result = [];
@@ -72,8 +76,10 @@ function getSheetData(sheetName) {
 function getSheetDataSafe(sheetName) {
   var sheet = getSheetSafe(sheetName);
   if (!sheet) return [];
-  var data = sheet.getDataRange().getValues();
-  if (data.length <= 1) return [];
+  var lastRow = sheet.getLastRow();
+  var lastCol = sheet.getLastColumn();
+  if (lastRow <= 1 || lastCol === 0) return [];
+  var data = sheet.getRange(1, 1, lastRow, lastCol).getValues();
   
   var headers = data[0];
   var result = [];
