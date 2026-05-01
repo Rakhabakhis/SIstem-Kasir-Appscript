@@ -37,6 +37,61 @@ function include(filename) {
 // ==================== DATABASE SETUP ====================
 
 /**
+ * MIGRASI: Tambahkan kolom Waktu_Pembayaran ke sheet Transaksi yang sudah ada.
+ * Jalankan SATU KALI dari GAS Editor jika sheet sudah terbentuk sebelum update ini.
+ * Fungsi ini aman dijalankan berulang (idempoten).
+ */
+function tambahKolomWaktuPembayaran() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(SHEET_TRANSAKSI);
+  if (!sheet) {
+    SpreadsheetApp.getUi().alert('Sheet "' + SHEET_TRANSAKSI + '" tidak ditemukan.');
+    return;
+  }
+
+  var lastCol = sheet.getLastColumn();
+  var colTarget = 15;
+
+  // Cek apakah header kolom 15 sudah ada
+  if (lastCol >= colTarget) {
+    var existingHeader = sheet.getRange(1, colTarget).getValue();
+    if (existingHeader === 'Waktu_Pembayaran') {
+      // Kolom sudah ada, pastikan lebarnya sudah benar
+      sheet.setColumnWidth(colTarget, 165);
+      SpreadsheetApp.getUi().alert('✅ Kolom Waktu_Pembayaran sudah ada dan lebar kolom sudah disesuaikan (165px).');
+      return;
+    }
+  }
+
+  // Tambahkan header di kolom 15
+  sheet.getRange(1, colTarget).setValue('Waktu_Pembayaran');
+
+  // Format header (bold, background seperti header lain)
+  var headerRange = sheet.getRange(1, colTarget);
+  headerRange.setFontWeight('bold');
+  headerRange.setBackground('#37474F');
+  headerRange.setFontColor('#FFFFFF');
+
+  // Set lebar kolom agar datetime tidak terpotong
+  sheet.setColumnWidth(colTarget, 165);
+
+  // Format seluruh kolom data sebagai datetime (agar Sheets menampilkan jam juga)
+  var lastRow = sheet.getLastRow();
+  if (lastRow > 1) {
+    sheet.getRange(2, colTarget, lastRow - 1, 1)
+      .setNumberFormat('dd/MM/yyyy HH:mm:ss');
+  }
+
+  SpreadsheetApp.getUi().alert(
+    '✅ Kolom Waktu_Pembayaran berhasil ditambahkan!\n' +
+    '- Header ditambahkan di kolom O (kolom ke-15)\n' +
+    '- Lebar kolom diset ke 165px\n' +
+    '- Format datetime diterapkan ke semua baris data\n\n' +
+    'Data akan terisi otomatis saat pesanan hold dibayar.'
+  );
+}
+
+/**
  * Inisialisasi database - JALANKAN SEKALI SAJA!
  * Membuat semua sheet dengan header dan data awal
  */
@@ -68,10 +123,13 @@ function setupDatabase() {
     sheetTransaksi.appendRow([
       'ID_Transaksi', 'Tanggal', 'Nama_Pelanggan', 'Jumlah_Item',
       'Subtotal', 'Pajak', 'Diskon', 'Total',
-      'Jenis_Pembayaran', 'Jumlah_Bayar', 'Kembalian', 'Status', 'Kasir', 'Catatan'
+      'Jenis_Pembayaran', 'Jumlah_Bayar', 'Kembalian', 'Status', 'Kasir', 'Catatan',
+      'Waktu_Pembayaran'
     ]);
     formatHeader(sheetTransaksi);
+    sheetTransaksi.setColumnWidth(15, 165); // Waktu_Pembayaran - cukup lebar untuk datetime
   }
+
   
   // === Sheet 3: DetailTransaksi ===
   var sheetDetail = getOrCreateSheet(ss, SHEET_DETAIL_TRANSAKSI);
@@ -94,6 +152,10 @@ function setupDatabase() {
       ['telepon', '0812-xxxx-xxxx'],
       ['pajak_persen', 10],
       ['pajak_aktif', 'Ya'],
+      ['notif_stok_email_aktif', 'Tidak'],
+      ['notif_stok_email_tujuan', ''],
+      ['notif_stok_email_last_sent', ''],
+      ['notif_stok_email_notified_ids', ''],
       ['id_transaksi_terakhir', 0],
       ['id_produk_terakhir', 0],
       ['id_detail_terakhir', 0],
@@ -512,8 +574,99 @@ function savePengaturan(settings) {
     if (settings.telepon !== undefined) setSetting('telepon', settings.telepon);
     if (settings.pajak_aktif !== undefined) setSetting('pajak_aktif', settings.pajak_aktif);
     if (settings.pajak_persen !== undefined) setSetting('pajak_persen', Number(settings.pajak_persen));
+    if (settings.notif_stok_email_aktif !== undefined) {
+      setSetting('notif_stok_email_aktif', settings.notif_stok_email_aktif);
+    }
+    if (settings.notif_stok_email_tujuan !== undefined) {
+      var emails = parseEmailList(settings.notif_stok_email_tujuan);
+      setSetting('notif_stok_email_tujuan', emails.join(', '));
+    }
     return successResponse(null, 'Pengaturan berhasil disimpan');
   } catch (e) {
     return errorResponse('Gagal simpan: ' + e.message);
   }
 }
+
+/**
+ * Mendapatkan status lengkap notifikasi email untuk ditampilkan di Pengaturan.
+ *
+ * CATATAN PENTING: ScriptApp.getAuthorizationInfo(AuthMode.FULL) selalu mengembalikan
+ * REQUIRED di konteks web app (doGet), meskipun MailApp sudah diotorisasi.
+ * Oleh karena itu, tes otorisasi yang benar adalah dengan mencoba memanggil
+ * MailApp.getRemainingDailyQuota() secara langsung.
+ */
+function getStatusNotifEmail() {
+  try {
+    var sudahOtorisasi = false;
+    var kuotaTersisa = null;
+    var emailPengirim = '';
+    var authUrl = '';
+
+    // Tes otorisasi nyata: coba panggil MailApp
+    // Jika berhasil = otorisasi OK. Jika throw = belum diotorisasi.
+    try {
+      kuotaTersisa = MailApp.getRemainingDailyQuota();
+      sudahOtorisasi = true;
+    } catch (mailErr) {
+      sudahOtorisasi = false;
+      // Coba ambil URL otorisasi
+      try {
+        var authInfo = ScriptApp.getAuthorizationInfo(ScriptApp.AuthMode.FULL);
+        authUrl = authInfo.getAuthorizationUrl();
+      } catch (authErr) {}
+    }
+
+    // Email pengirim hanya bisa didapat jika sudah otorisasi
+    if (sudahOtorisasi) {
+      try {
+        emailPengirim = Session.getEffectiveUser().getEmail();
+      } catch (sesErr) {
+        emailPengirim = '(akun Google pemilik script)';
+      }
+    }
+
+    // Data pengiriman terakhir
+    var lastSentRaw = getSetting('notif_stok_email_last_sent');
+    var lastSentStr = '';
+    if (lastSentRaw) {
+      try {
+        var d = new Date(lastSentRaw);
+        if (!isNaN(d.getTime())) {
+          lastSentStr = d.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' });
+        }
+      } catch (e) {}
+    }
+
+    // Email tujuan yang sudah diset
+    var emailTujuan = parseEmailList(getSetting('notif_stok_email_tujuan'));
+    var notifAktif = String(getSetting('notif_stok_email_aktif') || 'Tidak') === 'Ya';
+
+    // Jumlah item low stock saat ini
+    var lowStockCount = 0;
+    try {
+      var bahanData = getSheetDataSafe(SHEET_BAHAN_BAKU);
+      for (var i = 0; i < bahanData.length; i++) {
+        var row = bahanData[i];
+        if (row.Status !== 'Aktif') continue;
+        var stok = Number(row.Stok) || 0;
+        var min = Number(row.Stok_Minimum) || 0;
+        if (min > 0 && stok <= min) lowStockCount++;
+      }
+    } catch (lsErr) {}
+
+    return successResponse({
+      sudahOtorisasi: sudahOtorisasi,
+      emailPengirim: emailPengirim,
+      kuotaTersisa: kuotaTersisa,
+      authUrl: authUrl,
+      lastSent: lastSentStr,
+      emailTujuan: emailTujuan,
+      notifAktif: notifAktif,
+      lowStockCount: lowStockCount
+    });
+  } catch (e) {
+    return errorResponse('Gagal cek status email: ' + e.message);
+  }
+}
+
+

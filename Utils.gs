@@ -166,7 +166,10 @@ function getAllSettings() {
     alamat: '',
     telepon: '',
     pajak_persen: 10,
-    pajak_aktif: 'Ya'
+    pajak_aktif: 'Ya',
+    notif_stok_email_aktif: 'Tidak',
+    notif_stok_email_tujuan: '',
+    notif_stok_email_last_sent: ''
   };
   if (!sheet) return defaults;
   var data = sheet.getDataRange().getValues();
@@ -278,4 +281,25 @@ function errorResponse(message) {
     data: null,
     message: message || 'Terjadi kesalahan'
   };
+}
+
+/**
+ * Parse daftar email dari string comma/semicolon separated.
+ * @returns {Array<string>} email unik dan valid (lowercase)
+ */
+function parseEmailList(raw) {
+  var text = String(raw || '').trim();
+  if (!text) return [];
+  var parts = text.split(/[;,]/);
+  var result = [];
+  var seen = {};
+  for (var i = 0; i < parts.length; i++) {
+    var email = String(parts[i] || '').trim().toLowerCase();
+    if (!email) continue;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) continue;
+    if (seen[email]) continue;
+    seen[email] = true;
+    result.push(email);
+  }
+  return result;
 }

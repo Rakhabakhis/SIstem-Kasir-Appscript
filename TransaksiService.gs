@@ -148,30 +148,34 @@ function getTransaksiTerakhir(limit) {
     limit = limit || 10;
     var data = getSheetDataSafe(SHEET_TRANSAKSI);
     if (!data || data.length === 0) return successResponse([]);
-    
-    // Filter baris valid dan sort by tanggal descending
+
+    // Urutkan berdasarkan waktu bayar jika ada, fallback ke tanggal pesanan
     var valid = data.filter(function(r) { return r.ID_Transaksi && r.Tanggal; });
     valid.sort(function(a, b) {
-      var da = a.Tanggal instanceof Date ? a.Tanggal : new Date(a.Tanggal);
-      var db = b.Tanggal instanceof Date ? b.Tanggal : new Date(b.Tanggal);
+      var da = (a.Waktu_Pembayaran && a.Waktu_Pembayaran instanceof Date)
+        ? a.Waktu_Pembayaran : (a.Tanggal instanceof Date ? a.Tanggal : new Date(a.Tanggal));
+      var db = (b.Waktu_Pembayaran && b.Waktu_Pembayaran instanceof Date)
+        ? b.Waktu_Pembayaran : (b.Tanggal instanceof Date ? b.Tanggal : new Date(b.Tanggal));
       return db - da;
     });
-    
+
     var result = [];
     var maxItems = Math.min(limit, valid.length);
-    
     for (var i = 0; i < maxItems; i++) {
+      var r = valid[i];
+      var waktuBayar = (r.Waktu_Pembayaran && r.Waktu_Pembayaran instanceof Date) ? r.Waktu_Pembayaran : null;
       result.push({
-        id: valid[i].ID_Transaksi,
-        tanggal: formatTanggal(valid[i].Tanggal),
-        pelanggan: valid[i].Nama_Pelanggan || '-',
-        jumlahItem: Number(valid[i].Jumlah_Item) || 0,
-        total: Number(valid[i].Total) || 0,
-        jenisPembayaran: valid[i].Jenis_Pembayaran || '-',
-        status: valid[i].Status || '-'
+        id: r.ID_Transaksi,
+        tanggal: waktuBayar ? formatTanggal(waktuBayar) : formatTanggal(r.Tanggal),
+        tanggalPesanan: formatTanggal(r.Tanggal),
+        waktuPembayaran: waktuBayar ? formatTanggal(waktuBayar) : '',
+        pelanggan: r.Nama_Pelanggan || '-',
+        jumlahItem: Number(r.Jumlah_Item) || 0,
+        total: Number(r.Total) || 0,
+        jenisPembayaran: r.Jenis_Pembayaran || '-',
+        status: r.Status || '-'
       });
     }
-    
     return successResponse(result);
   } catch (e) {
     return errorResponse('Gagal memuat transaksi: ' + e.message);
@@ -188,27 +192,40 @@ function getSemuaTransaksi() {
     if (!data || data.length === 0) return successResponse([]);
 
     var valid = data.filter(function(r) { return r.ID_Transaksi; });
+
+    // Urutkan berdasarkan waktu efektif:
+    // - Transaksi selesai/batal: gunakan Waktu_Pembayaran jika ada, fallback ke Tanggal
+    // - Pesanan pending: gunakan Tanggal (waktu pesanan dibuat)
     valid.sort(function(a, b) {
-      var da = a.Tanggal instanceof Date ? a.Tanggal : new Date(a.Tanggal);
-      var db = b.Tanggal instanceof Date ? b.Tanggal : new Date(b.Tanggal);
-      return db - da;
+      var getWaktuEfektif = function(r) {
+        if (r.Waktu_Pembayaran && r.Waktu_Pembayaran instanceof Date) return r.Waktu_Pembayaran;
+        return r.Tanggal instanceof Date ? r.Tanggal : new Date(r.Tanggal);
+      };
+      return getWaktuEfektif(b) - getWaktuEfektif(a);
     });
 
     var result = [];
     for (var i = 0; i < valid.length; i++) {
+      var r = valid[i];
+      var waktuBayar = (r.Waktu_Pembayaran && r.Waktu_Pembayaran instanceof Date) ? r.Waktu_Pembayaran : null;
       result.push({
-        id:              valid[i].ID_Transaksi,
-        tanggal:         formatTanggal(valid[i].Tanggal),
-        pelanggan:       valid[i].Nama_Pelanggan || '-',
-        jumlahItem:      Number(valid[i].Jumlah_Item) || 0,
-        subtotal:        Number(valid[i].Subtotal) || 0,
-        pajak:           Number(valid[i].Pajak) || 0,
-        total:           Number(valid[i].Total) || 0,
-        jenisPembayaran: valid[i].Jenis_Pembayaran || '-',
-        jumlahBayar:     Number(valid[i].Jumlah_Bayar) || 0,
-        kembalian:       Number(valid[i].Kembalian) || 0,
-        status:          valid[i].Status || '-',
-        kasir:           valid[i].Kasir || '-'
+        id:              r.ID_Transaksi,
+        // tanggal = waktu pembayaran jika ada (untuk riwayat yg sudah selesai), else waktu pesanan
+        tanggal:         waktuBayar ? formatTanggal(waktuBayar) : formatTanggal(r.Tanggal),
+        tanggalPesanan:  formatTanggal(r.Tanggal),
+        waktuPembayaran: waktuBayar ? formatTanggal(waktuBayar) : '',
+        isPesananHold:   !!(waktuBayar && r.Tanggal instanceof Date &&
+                           r.Tanggal.toDateString() !== waktuBayar.toDateString()),
+        pelanggan:       r.Nama_Pelanggan || '-',
+        jumlahItem:      Number(r.Jumlah_Item) || 0,
+        subtotal:        Number(r.Subtotal) || 0,
+        pajak:           Number(r.Pajak) || 0,
+        total:           Number(r.Total) || 0,
+        jenisPembayaran: r.Jenis_Pembayaran || '-',
+        jumlahBayar:     Number(r.Jumlah_Bayar) || 0,
+        kembalian:       Number(r.Kembalian) || 0,
+        status:          r.Status || '-',
+        kasir:           r.Kasir || '-'
       });
     }
 
@@ -623,12 +640,17 @@ function prosesPembayaranPesanan(idPesanan, paymentData) {
     var errBahan = validasiBahanBaku(items);
     if (errBahan) return errorResponse(errBahan);
 
+    var waktuPembayaran = new Date();
     var sheetTrx = getSheet(SHEET_TRANSAKSI);
     sheetTrx.getRange(trxRow._rowIndex, 9).setValue(jenisPembayaran);
     sheetTrx.getRange(trxRow._rowIndex, 10).setValue(jumlahBayar);
     sheetTrx.getRange(trxRow._rowIndex, 11).setValue(kembalian);
     sheetTrx.getRange(trxRow._rowIndex, 12).setValue('Selesai');
     sheetTrx.getRange(trxRow._rowIndex, 13).setValue(namaKasir);
+    // Catat waktu pembayaran aktual di kolom 15 (Waktu_Pembayaran)
+    // Ini digunakan untuk menampilkan waktu yang akurat di riwayat transaksi
+    // ketika pesanan dibuat di hari lain lalu dibayar hari ini
+    sheetTrx.getRange(trxRow._rowIndex, 15).setValue(waktuPembayaran);
 
     kurangiBahanBaku(items, idPesanan, namaKasir);
 
@@ -641,7 +663,7 @@ function prosesPembayaranPesanan(idPesanan, paymentData) {
       subtotal: Number(trxRow.Subtotal) || 0,
       pajak: Number(trxRow.Pajak) || 0,
       diskon: Number(trxRow.Diskon) || 0,
-      tanggal: formatTanggal(new Date()),
+      tanggal: formatTanggal(waktuPembayaran),
       items: items
     }, 'Pembayaran pesanan ' + idPesanan + ' berhasil!');
   } catch (e) {

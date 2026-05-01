@@ -90,6 +90,8 @@ function tambahBahanBaku(data) {
       now
     ]);
 
+    _checkAndSendLowStockEmail(false);
+
     return successResponse({ id: id }, 'Bahan baku "' + data.nama + '" berhasil ditambahkan');
   } catch (e) {
     return errorResponse('Gagal tambah bahan baku: ' + e.message);
@@ -115,6 +117,7 @@ function editBahanBaku(data) {
         sheet.getRange(row, 7).setValue(data.keterangan !== undefined ? data.keterangan : allData[i].Keterangan);
         if (data.status) sheet.getRange(row, 8).setValue(data.status);
         sheet.getRange(row, 10).setValue(getNow());
+        _checkAndSendLowStockEmail(false);
         return successResponse(null, 'Bahan baku berhasil diupdate');
       }
     }
@@ -135,6 +138,7 @@ function hapusBahanBaku(id) {
       if (data[i].ID_Bahan === id) {
         sheet.getRange(data[i]._rowIndex, 8).setValue('Nonaktif');
         sheet.getRange(data[i]._rowIndex, 10).setValue(getNow());
+        _checkAndSendLowStockEmail(false);
         return successResponse(null, 'Bahan baku dinonaktifkan');
       }
     }
@@ -164,6 +168,7 @@ function restokBahanBaku(id, jumlah, keterangan) {
 
         // Log perubahan
         _logBahanBaku(id, data[i].Nama_Bahan, stokLama, jumlah, stokBaru, 'Masuk', keterangan || 'Restok manual', '', 'Admin');
+        _checkAndSendLowStockEmail(false);
 
         return successResponse({ stokBaru: stokBaru }, 'Restok berhasil. Stok baru: ' + stokBaru + ' ' + data[i].Satuan);
       }
@@ -193,6 +198,7 @@ function penyesuaianStokBahanBaku(id, stokBaru, keterangan, namaKasir) {
         sheet.getRange(data[i]._rowIndex, 10).setValue(getNow());
 
         _logBahanBaku(id, data[i].Nama_Bahan, stokLama, perubahan, stokBaru, 'Penyesuaian', keterangan || 'Penyesuaian stok', '', namaKasir || 'Admin');
+        _checkAndSendLowStockEmail(false);
 
         return successResponse({ stokBaru: stokBaru }, 'Penyesuaian stok berhasil');
       }
@@ -507,6 +513,7 @@ function kurangiBahanBaku(items, idTransaksi, namaKasir) {
         'Keluar', 'Penjualan ' + idTransaksi, idTransaksi, namaKasir || 'Kasir'
       );
     }
+    _checkAndSendLowStockEmail(false);
   } catch (e) {
     Logger.log('Warning: kurangiBahanBaku error - ' + e.message);
   }
@@ -646,9 +653,314 @@ function kembalikanBahanBaku(items, idTransaksi, namaKasir) {
         'Masuk', 'Pembatalan/Penghapusan transaksi ' + idTransaksi, idTransaksi, namaKasir || 'Sistem'
       );
     }
+    _checkAndSendLowStockEmail(false);
   } catch (e) {
     Logger.log('Warning: kembalikanBahanBaku error - ' + e.message);
   }
+}
+
+/**
+ * Kirim email notifikasi stok rendah secara manual dari halaman Pengaturan.
+ * Pastikan sudah menjalankan inisialisasiMailApp() dari editor Apps Script
+ * sebelum menggunakan fitur ini.
+ */
+function kirimTesEmailStokRendah() {
+  try {
+    var emailList = parseEmailList(getSetting('notif_stok_email_tujuan'));
+    if (emailList.length === 0) {
+      return errorResponse(
+        'Email tujuan notifikasi belum diatur. ' +
+        'Isi email tujuan di halaman Pengaturan terlebih dahulu.'
+      );
+    }
+
+    var namaToko = String(getSetting('nama_toko') || 'Toko');
+    var now = getNow();
+    var waktuStr = now instanceof Date ? now.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }) : String(now);
+    var subject = '[POS] Tes Email Notifikasi - ' + namaToko;
+
+    var bodyText = [
+      'Ini adalah email tes notifikasi stok rendah dari Sistem Kasir.',
+      '',
+      'Toko   : ' + namaToko,
+      'Waktu  : ' + waktuStr,
+      '',
+      'Jika email ini diterima, maka konfigurasi notifikasi sudah benar.',
+      'Notifikasi otomatis akan dikirim saat ada bahan baku dengan stok di bawah minimum.'
+    ].join('\n');
+
+    var bodyHtml = '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">' +
+      '<div style="background:#0D9488;padding:20px;border-radius:8px 8px 0 0;">' +
+      '<h2 style="color:#fff;margin:0;">✅ Tes Email Notifikasi</h2>' +
+      '</div>' +
+      '<div style="background:#f8fafc;padding:24px;border:1px solid #e2e8f0;border-radius:0 0 8px 8px;">' +
+      '<p style="color:#334155;">Ini adalah email tes notifikasi stok rendah dari <strong>Sistem Kasir POS</strong>.</p>' +
+      '<table style="width:100%;border-collapse:collapse;margin:16px 0;">' +
+      '<tr><td style="padding:8px;color:#64748b;width:80px;">Toko</td>' +
+      '<td style="padding:8px;font-weight:600;color:#1e293b;">' + namaToko + '</td></tr>' +
+      '<tr style="background:#f1f5f9;"><td style="padding:8px;color:#64748b;">Waktu</td>' +
+      '<td style="padding:8px;font-weight:600;color:#1e293b;">' + waktuStr + '</td></tr>' +
+      '</table>' +
+      '<p style="color:#334155;">Jika email ini diterima, konfigurasi notifikasi sudah benar. ' +
+      'Notifikasi otomatis akan dikirim saat ada bahan baku dengan stok di bawah minimum.</p>' +
+      '<hr style="border:none;border-top:1px solid #e2e8f0;margin:16px 0;">' +
+      '<p style="color:#94a3b8;font-size:12px;">Pesan ini dikirim oleh Sistem Kasir POS</p>' +
+      '</div></div>';
+
+    MailApp.sendEmail({
+      to: emailList.join(','),
+      subject: subject,
+      body: bodyText,
+      htmlBody: bodyHtml
+    });
+
+    return successResponse({
+      penerima: emailList,
+      waktu: now instanceof Date ? now.toISOString() : String(now)
+    }, 'Tes email berhasil dikirim ke: ' + emailList.join(', '));
+  } catch (e) {
+    var errMsg = e.message || String(e);
+    // Deteksi error otorisasi khusus
+    if (errMsg.indexOf('script.send_mail') !== -1 || errMsg.indexOf('does not have permission') !== -1 || errMsg.indexOf('tidak memiliki izin') !== -1) {
+      return errorResponse(
+        '⚠️ Otorisasi MailApp belum diberikan.\n\n' +
+        'CARA MEMPERBAIKI:\n' +
+        '1. Buka Google Apps Script Editor (Extensions > Apps Script)\n' +
+        '2. Pilih fungsi "inisialisasiMailApp" dari dropdown\n' +
+        '3. Klik tombol ▶ Run\n' +
+        '4. Setujui semua izin yang diminta\n' +
+        '5. Coba kirim tes email lagi\n\n' +
+        'Detail error: ' + errMsg
+      );
+    }
+    return errorResponse('Gagal kirim email tes: ' + errMsg);
+  }
+}
+
+/**
+ * Cek kondisi stok rendah dan kirim email bila perlu.
+ *
+ * LOGIKA: per-item tracking (bukan time-based cooldown)
+ * - Email dikirim setiap ada bahan baku BARU yang turun di bawah minimum
+ * - Tidak ada batasan waktu antar pengiriman
+ * - ID bahan yang sudah dinotifikasi disimpan di setting 'notif_stok_email_notified_ids'
+ * - Saat bahan direstok di atas minimum, ID-nya otomatis dihapus dari daftar
+ * - Cooldown 2 menit hanya untuk mencegah duplicate rapid send (race condition)
+ *
+ * @param {boolean} forceSend - true untuk bypass tracking dan kirim semua item low stock
+ * @returns {{ok:boolean,message:string,data:Object}}
+ */
+function _checkAndSendLowStockEmail(forceSend) {
+  try {
+    var aktif = String(getSetting('notif_stok_email_aktif') || 'Tidak') === 'Ya';
+    if (!aktif) return { ok: true, message: 'Notifikasi email nonaktif', data: null };
+
+    var emailList = parseEmailList(getSetting('notif_stok_email_tujuan'));
+    if (emailList.length === 0) {
+      return { ok: false, message: 'Email tujuan notifikasi belum diatur', data: null };
+    }
+
+    // Baca stok terbaru langsung dari sheet (selalu fresh setelah operasi stok)
+    var lowItems = _getLowStockItemsInternal();
+    var currentLowIds = lowItems.map(function(it) { return it.id; });
+
+    // Baca daftar ID yang sudah pernah dinotifikasi
+    var notifiedRaw = getSetting('notif_stok_email_notified_ids') || '';
+    var notifiedIds = notifiedRaw
+      ? notifiedRaw.split(',').map(function(x) { return x.trim(); }).filter(function(x) { return x.length > 0; })
+      : [];
+
+    // Hapus ID yang sudah TIDAK low stock lagi (sudah direstok di atas minimum)
+    var stillLowNotified = notifiedIds.filter(function(id) {
+      return currentLowIds.indexOf(id) !== -1;
+    });
+
+    // Cari item BARU yang belum pernah dinotifikasi
+    var newLowItems = lowItems.filter(function(it) {
+      return stillLowNotified.indexOf(it.id) === -1;
+    });
+
+    // Item yang sudah pernah dinotifikasi dan masih low stock
+    var prevLowItems = lowItems.filter(function(it) {
+      return stillLowNotified.indexOf(it.id) !== -1;
+    });
+
+    // Tentukan item mana yang jadi trigger pengiriman
+    var itemsToTrigger = forceSend ? lowItems : newLowItems;
+
+    // Update state tracking (hapus yang sudah restok)
+    if (!forceSend) {
+      setSetting('notif_stok_email_notified_ids', stillLowNotified.join(','));
+    }
+
+    if (itemsToTrigger.length === 0) {
+      return {
+        ok: true,
+        message: 'Tidak ada bahan low stock baru (semua sudah dinotifikasi sebelumnya)',
+        data: { jumlahLowStock: lowItems.length, jumlahBaru: 0 }
+      };
+    }
+
+    // Cooldown singkat 2 menit — hanya cegah duplicate send (race condition)
+    var minCooldownMs = 2 * 60 * 1000;
+    if (!forceSend) {
+      var lastSentRaw = getSetting('notif_stok_email_last_sent');
+      var lastSent = lastSentRaw ? new Date(lastSentRaw) : null;
+      if (lastSent && !isNaN(lastSent.getTime()) && (new Date().getTime() - lastSent.getTime()) < minCooldownMs) {
+        return { ok: true, message: 'Cooldown singkat aktif (2 menit)', data: { cooldown: true } };
+      }
+    }
+
+    var now = new Date();
+    var namaToko = String(getSetting('nama_toko') || 'Toko');
+    var waktuStr = now.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' });
+    var adaHabis = itemsToTrigger.some(function(it) { return it.stok <= 0; });
+
+    var subject = '[POS] ' + (adaHabis ? '🔴 Stok HABIS' : '⚠️ Stok Rendah') +
+      ' - ' + itemsToTrigger.length + ' bahan baru - ' + namaToko;
+
+    // ===== PLAIN TEXT =====
+    var lines = [];
+    lines.push((adaHabis ? '🔴 PERINGATAN STOK HABIS' : '⚠️ PERINGATAN STOK RENDAH') + ' - ' + namaToko);
+    lines.push('Waktu: ' + waktuStr);
+    lines.push('');
+    lines.push('BAHAN YANG BARU BERMASALAH (' + itemsToTrigger.length + '):');
+    for (var i = 0; i < itemsToTrigger.length; i++) {
+      var it = itemsToTrigger[i];
+      lines.push('  • [' + (it.stok <= 0 ? 'HABIS' : 'RENDAH') + '] ' + it.nama +
+        ' | Stok: ' + it.stok + ' ' + it.satuan + ' | Minimum: ' + it.stokMinimum + ' ' + it.satuan);
+    }
+    if (prevLowItems.length > 0) {
+      lines.push('');
+      lines.push('BAHAN SEBELUMNYA YANG BELUM DIRESTOK (' + prevLowItems.length + '):');
+      for (var j = 0; j < prevLowItems.length; j++) {
+        var pv = prevLowItems[j];
+        lines.push('  • ' + pv.nama + ' | Stok: ' + pv.stok + ' ' + pv.satuan);
+      }
+    }
+    lines.push('');
+    lines.push('Total bahan bermasalah saat ini: ' + lowItems.length);
+    lines.push('Segera lakukan restok dari halaman Bahan Baku di Sistem Kasir.');
+    var bodyText = lines.join('\n');
+
+    // ===== HTML =====
+    var newRowsHtml = '';
+    for (var n = 0; n < itemsToTrigger.length; n++) {
+      var ni = itemsToTrigger[n];
+      var niHabis = ni.stok <= 0;
+      var niColor = niHabis ? '#dc2626' : '#f97316';
+      var pct = ni.stokMinimum > 0 ? Math.max(0, Math.min(100, Math.round((ni.stok / ni.stokMinimum) * 100))) : 0;
+      newRowsHtml += '<tr style="' + (n % 2 === 0 ? 'background:#fff7ed;' : 'background:#fff;') + '">' +
+        '<td style="padding:10px 12px;font-weight:600;color:#1e293b;">' + ni.nama + '</td>' +
+        '<td style="padding:10px 12px;text-align:center;">' +
+        '<span style="background:' + niColor + ';color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;">' +
+        (niHabis ? 'HABIS' : 'RENDAH') + '</span></td>' +
+        '<td style="padding:10px 12px;text-align:right;">' +
+        '<strong style="color:' + niColor + ';font-size:14px;">' + ni.stok + '</strong>' +
+        ' <span style="color:#94a3b8;font-size:11px;">' + ni.satuan + '</span>' +
+        '<div style="margin-top:4px;height:4px;background:#fee2e2;border-radius:2px;">' +
+        '<div style="height:4px;width:' + pct + '%;background:' + niColor + ';border-radius:2px;"></div></div>' +
+        '</td>' +
+        '<td style="padding:10px 12px;text-align:right;color:#64748b;">' + ni.stokMinimum + ' <span style="font-size:11px;">' + ni.satuan + '</span></td>' +
+        '</tr>';
+    }
+
+    var prevRowsHtml = '';
+    for (var p = 0; p < prevLowItems.length; p++) {
+      var pi = prevLowItems[p];
+      prevRowsHtml += '<tr style="' + (p % 2 === 0 ? 'background:#f8fafc;' : '') + '">' +
+        '<td style="padding:8px 12px;color:#64748b;">' + pi.nama + '</td>' +
+        '<td style="padding:8px 12px;text-align:center;">' +
+        '<span style="background:' + (pi.stok <= 0 ? '#dc2626' : '#f97316') + ';color:#fff;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:700;">' +
+        (pi.stok <= 0 ? 'HABIS' : 'RENDAH') + '</span></td>' +
+        '<td style="padding:8px 12px;text-align:right;color:#dc2626;font-weight:600;">' + pi.stok +
+        ' <span style="color:#94a3b8;font-size:11px;">' + pi.satuan + '</span></td>' +
+        '<td style="padding:8px 12px;text-align:right;color:#64748b;">' + pi.stokMinimum +
+        ' <span style="font-size:11px;">' + pi.satuan + '</span></td>' +
+        '</tr>';
+    }
+
+    var hdrBg = adaHabis ? '#dc2626' : '#b45309';
+    var tableHead = '<table style="width:100%;border-collapse:collapse;">' +
+      '<thead><tr style="background:#f1f5f9;">' +
+      '<th style="padding:9px 12px;text-align:left;color:#475569;font-size:11px;">NAMA BAHAN</th>' +
+      '<th style="padding:9px 12px;text-align:center;color:#475569;font-size:11px;">STATUS</th>' +
+      '<th style="padding:9px 12px;text-align:right;color:#475569;font-size:11px;">STOK SAAT INI</th>' +
+      '<th style="padding:9px 12px;text-align:right;color:#475569;font-size:11px;">MINIMUM</th>' +
+      '</tr></thead>';
+
+    var bodyHtml = '<div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;">' +
+      '<div style="background:' + hdrBg + ';padding:20px;border-radius:8px 8px 0 0;">' +
+      '<h2 style="color:#fff;margin:0;">' + (adaHabis ? '🔴 Stok Bahan Baku HABIS' : '⚠️ Stok Bahan Baku Rendah') + '</h2>' +
+      '<p style="color:rgba(255,255,255,.8);margin:4px 0 0;font-size:13px;">Toko: ' + namaToko + '  |  ' + waktuStr + '</p>' +
+      '</div>' +
+      '<div style="background:#fff;border:1px solid #e2e8f0;border-top:none;">' +
+
+      // Section bahan BARU
+      '<div style="padding:12px 20px;background:#fff7ed;border-bottom:2px solid #f97316;">' +
+      '<strong style="color:#c2410c;font-size:13px;">🆕 Bahan yang BARU bermasalah (' + itemsToTrigger.length + ' item)</strong>' +
+      '<div style="font-size:12px;color:#9a3412;margin-top:2px;">Pemicu email ini dikirim</div>' +
+      '</div>' +
+      tableHead + '<tbody>' + newRowsHtml + '</tbody></table>' +
+
+      // Section bahan SEBELUMNYA (jika ada)
+      (prevRowsHtml ?
+        '<div style="padding:12px 20px;background:#f8fafc;border-top:1px solid #e2e8f0;">' +
+        '<strong style="color:#475569;font-size:12px;">📋 Belum direstok dari notifikasi sebelumnya (' + prevLowItems.length + ' item)</strong>' +
+        '</div>' +
+        tableHead + '<tbody>' + prevRowsHtml + '</tbody></table>' : '') +
+
+      '<div style="padding:14px 20px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;">' +
+      '<p style="color:#475569;margin:0;font-size:13px;">Segera lakukan <strong>restok</strong> dari halaman Bahan Baku di Sistem Kasir.</p>' +
+      '<span style="background:#fef2f2;color:#dc2626;font-weight:700;padding:4px 12px;border-radius:20px;font-size:12px;white-space:nowrap;margin-left:12px;">Total: ' + lowItems.length + ' bahan</span>' +
+      '</div></div>' +
+      '<div style="padding:10px 20px;"><p style="color:#94a3b8;font-size:11px;margin:0;">Dikirim otomatis oleh Sistem Kasir POS</p></div></div>';
+
+    MailApp.sendEmail({
+      to: emailList.join(','),
+      subject: subject,
+      body: bodyText,
+      htmlBody: bodyHtml
+    });
+
+    // Update state: tandai item baru sebagai sudah dinotifikasi
+    if (!forceSend) {
+      var updatedNotified = stillLowNotified.concat(newLowItems.map(function(it) { return it.id; }));
+      setSetting('notif_stok_email_notified_ids', updatedNotified.join(','));
+    }
+    setSetting('notif_stok_email_last_sent', now.toISOString());
+
+    return {
+      ok: true,
+      message: 'Email dikirim untuk ' + itemsToTrigger.length + ' bahan baru (total low stock: ' + lowItems.length + ')',
+      data: { jumlahLowStock: lowItems.length, jumlahBaru: itemsToTrigger.length, penerima: emailList }
+    };
+  } catch (e) {
+    Logger.log('_checkAndSendLowStockEmail error: ' + e.message);
+    return { ok: false, message: 'Gagal kirim email notifikasi: ' + e.message, data: null };
+  }
+}
+
+function _getLowStockItemsInternal() {
+  var data = getSheetDataSafe(SHEET_BAHAN_BAKU);
+  var result = [];
+  for (var i = 0; i < data.length; i++) {
+    var row = data[i];
+    if (row.Status !== 'Aktif') continue;
+    var stok = Number(row.Stok) || 0;
+    var min = Number(row.Stok_Minimum) || 0;
+    if (min <= 0) continue;
+    if (stok <= min) {
+      result.push({
+        id: row.ID_Bahan,
+        nama: row.Nama_Bahan,
+        stok: stok,
+        stokMinimum: min,
+        satuan: row.Satuan || ''
+      });
+    }
+  }
+  return result;
 }
 
 // ==================== LOG BAHAN BAKU ====================

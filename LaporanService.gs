@@ -24,7 +24,7 @@ function getLaporan(filter) {
     
     for (var i = 0; i < data.length; i++) {
       var row = data[i];
-      if (row.Status === 'Dibatalkan') continue;
+      if (!isStatusTransaksiSelesai(row.Status)) continue;
       if (!row.ID_Transaksi) continue; // skip baris kosong
       
       // Tanggal dari Sheets bisa berupa Date object atau string
@@ -140,7 +140,7 @@ function getProdukTerlaris(filter) {
     var validTrx = {};
     for (var i = 0; i < transaksiData.length; i++) {
       var row = transaksiData[i];
-      if (row.Status === 'Dibatalkan') continue;
+      if (!isStatusTransaksiSelesai(row.Status)) continue;
       var tgl = new Date(row.Tanggal);
       var inc = true;
       if (filter.tanggalMulai) {
@@ -267,7 +267,7 @@ function getGrafikPendapatan(filter) {
     
     for (var i = 0; i < data.length; i++) {
       var row = data[i];
-      if (row.Status === 'Dibatalkan') continue;
+      if (!isStatusTransaksiSelesai(row.Status)) continue;
       var tgl = new Date(row.Tanggal);
       var inc = true;
       if (filter.tanggalMulai) {
@@ -296,4 +296,12 @@ function getGrafikPendapatan(filter) {
   } catch (e) {
     return errorResponse('Gagal memuat grafik: ' + e.message);
   }
+}
+
+/**
+ * Validasi status transaksi yang boleh masuk laporan penjualan.
+ * Hanya transaksi berstatus "Selesai" yang dihitung sebagai penjualan.
+ */
+function isStatusTransaksiSelesai(status) {
+  return String(status || '').toLowerCase() === 'selesai';
 }

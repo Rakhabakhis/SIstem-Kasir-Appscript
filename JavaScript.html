@@ -724,7 +724,7 @@
     }
 
     var html = '<div style="text-align:center;margin-bottom:16px">' +
-      '<div class="success-check" style="background:var(--warning)"><span class="material-icons-round">receipt_long</span></div>' +
+      '<div style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#f59e0b 0%,#fb923c 100%);box-shadow:0 8px 20px rgba(245,158,11,0.4);display:flex;align-items:center;justify-content:center;margin:0 auto 16px"><span class="material-icons-round" style="font-size:34px;color:#fff">receipt_long</span></div>' +
       '<h3 style="margin-bottom:4px">Pesanan Berhasil Ditambahkan</h3>' +
       '</div>' +
       '<div class="pesanan-success-card">' +
@@ -1259,7 +1259,7 @@
     var totalSelesai = 0, totalBatal = 0, totalOmzet = 0;
     for (var i = 0; i < data.length; i++) {
       if (data[i].status === 'Selesai') { totalSelesai++; totalOmzet += Number(data[i].total || 0); }
-      else { totalBatal++; }
+      else if (data[i].status === 'Dibatalkan') { totalBatal++; }
     }
     var elTotal = document.getElementById('riwayat-stat-total');
     var elSelesai = document.getElementById('riwayat-stat-selesai');
@@ -1290,10 +1290,23 @@
     var html = '';
     for (var j = 0; j < pageData.length; j++) {
       var t = pageData[j];
-      var statusClass = t.status === 'Selesai' ? 'status-selesai' : 'status-dibatalkan';
+      var statusClass = t.status === 'Selesai' ? 'status-selesai' :
+                        t.status === 'Pesanan'  ? 'status-pending'  : 'status-dibatalkan';
+
+      // Tampilan waktu: jika ada waktuPembayaran tampilkan itu, else tanggal biasa
+      // Jika merupakan pesanan hold yg dibayar beda hari, tambahkan badge info
+      var waktuHtml = '';
+      if (t.isPesananHold && t.tanggalPesanan && t.waktuPembayaran) {
+        waktuHtml = '<span style="white-space:nowrap">' + t.waktuPembayaran +
+          ' <span title="Pesanan dibuat: ' + t.tanggalPesanan + '" style="display:inline-flex;align-items:center;gap:2px;background:#f59e0b22;color:#b45309;border:1px solid #fcd34d;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:600;cursor:help">' +
+          '<span class="material-icons-round" style="font-size:11px">schedule</span>Hold</span></span>';
+      } else {
+        waktuHtml = '<span style="white-space:nowrap">' + (t.tanggal || '-') + '</span>';
+      }
+
       html += '<tr class="riwayat-row" onclick="showDetailTransaksi(\'' + t.id + '\')" style="cursor:pointer" title="Klik untuk lihat detail">' +
         '<td><strong>' + t.id + '</strong></td>' +
-        '<td style="white-space:nowrap">' + (t.tanggal || '-') + '</td>' +
+        '<td>' + waktuHtml + '</td>' +
         '<td>' + (t.pelanggan || '—') + '</td>' +
         '<td>' + (t.jumlahItem || 0) + ' item</td>' +
         '<td><strong>' + fmtRp(t.total) + '</strong></td>' +
@@ -1971,7 +1984,9 @@
     }
 
     var tbody = document.getElementById('laporan-tbody');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted)">Memuat laporan...</td></tr>';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:var(--text-muted)">Memuat laporan...</td></tr>';
+
+    loadGrafikPendapatan(filter);
 
     google.script.run
       .withSuccessHandler(function (res) {
@@ -1979,50 +1994,83 @@
           renderLaporan(res.data);
         } else {
           var msg = res ? res.message : 'Terjadi kesalahan';
-          if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--danger)">Gagal: ' + msg + '</td></tr>';
+          if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:var(--danger)">Gagal: ' + msg + '</td></tr>';
           showToast(msg, 'error');
         }
       })
       .withFailureHandler(function (err) {
         var msg = err ? err.message : 'Gagal terhubung ke server';
-        if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--danger)">Error: ' + msg + '</td></tr>';
+        if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:var(--danger)">Error: ' + msg + '</td></tr>';
         showToast('Gagal memuat laporan: ' + msg, 'error');
       })
       .getLaporan(filter);
   }
 
+  var _lastLaporanData = null;
+
   function renderLaporan(data) {
+    _lastLaporanData = data;
     var r = data.ringkasan;
     document.getElementById('stat-total-trx').textContent = r.totalTransaksi;
     document.getElementById('stat-pendapatan').textContent = fmtRp(r.totalPendapatan);
     document.getElementById('stat-rata').textContent = fmtRp(r.rataRata);
     document.getElementById('stat-pajak').textContent = fmtRp(r.totalPajak);
+    var elDiskon = document.getElementById('stat-diskon');
+    if (elDiskon) elDiskon.textContent = fmtRp(r.totalDiskon || 0);
 
+    // Payment breakdown dengan progress bar
     var payDiv = document.getElementById('payment-breakdown');
     if (payDiv) {
-      var html = '';
-      for (var i = 0; i < data.pembayaran.length; i++) {
-        var p = data.pembayaran[i];
-        html += '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border-light)"><span>' + p.metode + ' (' + p.jumlah + 'x)</span><span style="font-weight:600">' + fmtRp(p.total) + '</span></div>';
+      if (!data.pembayaran || data.pembayaran.length === 0) {
+        payDiv.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:16px">Tidak ada data</p>';
+      } else {
+        var totalSemua = 0;
+        for (var pi = 0; pi < data.pembayaran.length; pi++) totalSemua += data.pembayaran[pi].total;
+        var payColors = ['var(--primary)', 'var(--success)', 'var(--warning)', 'var(--danger)', '#8b5cf6'];
+        var ph = '';
+        for (var i = 0; i < data.pembayaran.length; i++) {
+          var p = data.pembayaran[i];
+          var pct = totalSemua > 0 ? Math.round((p.total / totalSemua) * 100) : 0;
+          var color = payColors[i % payColors.length];
+          ph += '<div style="margin-bottom:14px">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">' +
+            '<div style="display:flex;align-items:center;gap:8px">' +
+            '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + color + '"></span>' +
+            '<span style="font-size:13px;font-weight:600">' + p.metode + '</span>' +
+            '<span style="font-size:11px;color:var(--text-muted)">(' + p.jumlah + 'x)</span>' +
+            '</div>' +
+            '<div style="text-align:right">' +
+            '<span style="font-size:13px;font-weight:700">' + fmtRp(p.total) + '</span>' +
+            '<span style="font-size:11px;color:var(--text-muted);margin-left:6px">' + pct + '%</span>' +
+            '</div></div>' +
+            '<div class="pay-bar-track"><div class="pay-bar-fill" style="width:' + pct + '%;background:' + color + '"></div></div>' +
+            '</div>';
+        }
+        payDiv.innerHTML = ph;
       }
-      payDiv.innerHTML = html || '<p style="color:var(--text-muted);text-align:center;padding:16px">Tidak ada data</p>';
     }
+
+    // Jumlah transaksi label
+    var countEl = document.getElementById('laporan-trx-count');
+    if (countEl && data.transaksi) countEl.textContent = data.transaksi.length + ' transaksi';
 
     var tbody = document.getElementById('laporan-tbody');
     if (tbody) {
       if (!data.transaksi || data.transaksi.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--text-muted)">Tidak ada transaksi</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:var(--text-muted)">Tidak ada transaksi</td></tr>';
       } else {
         var thtml = '';
         for (var j = 0; j < data.transaksi.length; j++) {
           var t = data.transaksi[j];
           var statusClass = t.status === 'Selesai' ? 'status-selesai' : 'status-dibatalkan';
           thtml += '<tr>' +
-            '<td><strong>' + t.id + '</strong></td>' +
-            '<td>' + t.tanggal + '</td>' +
-            '<td>' + t.jumlahItem + '</td>' +
-            '<td>' + fmtRp(t.total) + '</td>' +
-            '<td>' + t.jenisPembayaran + '</td>' +
+            '<td><strong style="font-size:12px">' + t.id + '</strong></td>' +
+            '<td style="white-space:nowrap;font-size:12px">' + t.tanggal + '</td>' +
+            '<td style="max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px">' + (t.pelanggan || '-') + '</td>' +
+            '<td style="text-align:center">' + t.jumlahItem + '</td>' +
+            '<td style="text-align:right;font-weight:600;white-space:nowrap">' + fmtRp(t.total) + '</td>' +
+            '<td style="font-size:12px">' + t.jenisPembayaran + '</td>' +
+            '<td style="font-size:12px;color:var(--text-muted)">' + (t.kasir || '-') + '</td>' +
             '<td><span class="' + statusClass + '">' + t.status + '</span></td>' +
             '<td><button class="btn btn-sm btn-danger" onclick="confirmHapusTransaksi(\'' + t.id + '\',\'' + t.status + '\')" title="Hapus transaksi"><span class="material-icons-round" style="font-size:14px">delete</span></button></td>' +
             '</tr>';
@@ -2030,6 +2078,98 @@
         tbody.innerHTML = thtml;
       }
     }
+  }
+
+  // ==================== GRAFIK PENDAPATAN ====================
+  var _lastGrafikFilter = {};
+
+  function loadGrafikPendapatan(filter) {
+    _lastGrafikFilter = filter || {};
+    var container = document.getElementById('grafik-pendapatan-container');
+    if (container) container.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:24px">Memuat grafik...</p>';
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (res && res.success) renderGrafikPendapatan(res.data);
+        else {
+          var c = document.getElementById('grafik-pendapatan-container');
+          if (c) c.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:24px">Tidak ada data grafik</p>';
+        }
+      })
+      .withFailureHandler(function() {
+        var c = document.getElementById('grafik-pendapatan-container');
+        if (c) c.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:24px">Gagal memuat grafik</p>';
+      })
+      .getGrafikPendapatan(_lastGrafikFilter);
+  }
+
+  function renderGrafikPendapatan(data) {
+    var container = document.getElementById('grafik-pendapatan-container');
+    if (!container) return;
+    if (!data || data.length === 0) {
+      container.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:24px">Tidak ada data untuk periode ini</p>';
+      return;
+    }
+    var maxVal = 0;
+    for (var i = 0; i < data.length; i++) { if (data[i].total > maxVal) maxVal = data[i].total; }
+    if (maxVal === 0) maxVal = 1;
+
+    var html = '<div class="grafik-bar-chart">';
+    for (var j = 0; j < data.length; j++) {
+      var d = data[j];
+      var heightPct = Math.max(4, Math.round((d.total / maxVal) * 100));
+      var label = d.tanggal ? d.tanggal.split('/').slice(0,2).join('/') : '';
+      html += '<div class="grafik-bar-col" title="' + d.tanggal + '\n' + fmtRp(d.total) + ' (' + d.transaksi + ' trx)">' +
+        '<div class="grafik-bar-val">' + (d.total >= 1000000 ? (Math.round(d.total/100000)/10)+'jt' : d.total >= 1000 ? Math.round(d.total/1000)+'rb' : d.total) + '</div>' +
+        '<div class="grafik-bar-wrap"><div class="grafik-bar" style="height:' + heightPct + '%"></div></div>' +
+        '<div class="grafik-bar-lbl">' + label + '</div>' +
+        '</div>';
+    }
+    html += '</div>';
+
+    // Update label range
+    var rangeEl = document.getElementById('grafik-range-label');
+    if (rangeEl && data.length > 0) {
+      rangeEl.textContent = data[0].tanggal + (data.length > 1 ? ' – ' + data[data.length-1].tanggal : '');
+    }
+
+    container.innerHTML = html;
+  }
+
+  // ==================== EXPORT CSV ====================
+  function exportLaporanCSV() {
+    if (!_lastLaporanData || !_lastLaporanData.transaksi || _lastLaporanData.transaksi.length === 0) {
+      showToast('Tidak ada data untuk diekspor', 'warning');
+      return;
+    }
+    var rows = [['ID Transaksi','Waktu','Pelanggan','Jumlah Item','Subtotal','Pajak','Diskon','Total','Pembayaran','Kasir','Status']];
+    var t = _lastLaporanData.transaksi;
+    for (var i = 0; i < t.length; i++) {
+      rows.push([
+        t[i].id, t[i].tanggal, t[i].pelanggan || '-',
+        t[i].jumlahItem, t[i].subtotal || 0, t[i].pajak || 0, t[i].diskon || 0, t[i].total,
+        t[i].jenisPembayaran, t[i].kasir || '-', t[i].status
+      ]);
+    }
+    var csvContent = rows.map(function(row) {
+      return row.map(function(cell) {
+        var s = String(cell === null || cell === undefined ? '' : cell);
+        if (s.indexOf(',') !== -1 || s.indexOf('"') !== -1 || s.indexOf('\n') !== -1) {
+          s = '"' + s.replace(/"/g, '""') + '"';
+        }
+        return s;
+      }).join(',');
+    }).join('\n');
+
+    var now = new Date();
+    var fname = 'laporan-penjualan-' + now.getFullYear() + ('0'+(now.getMonth()+1)).slice(-2) + ('0'+now.getDate()).slice(-2) + '.csv';
+    var blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = fname; a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function() { document.body.removeChild(a); URL.revokeObjectURL(url); }, 500);
+    showToast('Export berhasil: ' + fname, 'success');
   }
 
   // ==================== LAPORAN ITEM TERJUAL ====================
@@ -2171,15 +2311,116 @@
     document.getElementById('set-telepon').value = APP.settings.telepon || '';
     document.getElementById('set-pajak-aktif').checked = APP.settings.pajak_aktif === 'Ya';
     document.getElementById('set-pajak-persen').value = APP.settings.pajak_persen || 10;
+    document.getElementById('set-notif-stok-email-aktif').checked = APP.settings.notif_stok_email_aktif === 'Ya';
+    document.getElementById('set-notif-stok-email-tujuan').value = APP.settings.notif_stok_email_tujuan || '';
     togglePajakField();
+    toggleNotifStokEmailField();
 
     // Load kasir list
     loadKasirTable();
+
+    // Load status notifikasi email
+    loadStatusNotifEmail();
+  }
+
+  function loadStatusNotifEmail() {
+    var statusText = document.getElementById('notif-status-text');
+    var senderText = document.getElementById('notif-sender-text');
+    var quotaText  = document.getElementById('notif-quota-text');
+    var lastSent   = document.getElementById('notif-last-sent-text');
+    var lowstock   = document.getElementById('notif-lowstock-text');
+    var badge      = document.getElementById('notif-auth-badge');
+    var warning    = document.getElementById('notif-auth-warning');
+
+    if (statusText) statusText.textContent = 'Memeriksa...';
+    if (badge) { badge.style.display = 'none'; }
+
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (!res || !res.success) return;
+        var d = res.data;
+
+        // Status otorisasi
+        if (statusText) {
+          if (d.sudahOtorisasi) {
+            statusText.innerHTML = '<span style="color:#16a34a;">✅ Terotorisasi</span>';
+          } else {
+            statusText.innerHTML = '<span style="color:#dc2626;">❌ Belum Diotorisasi</span>';
+          }
+        }
+
+        // Badge di card header
+        if (badge) {
+          badge.style.display = 'inline-block';
+          if (d.sudahOtorisasi) {
+            badge.style.background = '#dcfce7';
+            badge.style.color = '#166534';
+            badge.textContent = '✅ Aktif';
+          } else {
+            badge.style.background = '#fee2e2';
+            badge.style.color = '#991b1b';
+            badge.textContent = '❌ Perlu Otorisasi';
+          }
+        }
+
+        // Panel peringatan
+        if (warning) {
+          warning.style.display = d.sudahOtorisasi ? 'none' : 'block';
+        }
+
+        // Email pengirim
+        if (senderText) {
+          senderText.textContent = d.emailPengirim
+            ? d.emailPengirim
+            : '(otorisasi diperlukan)';
+        }
+
+        // Kuota harian
+        if (quotaText) {
+          if (d.kuotaTersisa !== null && d.kuotaTersisa !== undefined) {
+            var kuotaColor = d.kuotaTersisa > 50 ? '#16a34a' : d.kuotaTersisa > 10 ? '#f59e0b' : '#dc2626';
+            quotaText.innerHTML = '<span style="color:' + kuotaColor + ';font-weight:700;">' + d.kuotaTersisa + '</span> email/hari tersisa';
+          } else {
+            quotaText.textContent = d.sudahOtorisasi ? '—' : 'Perlu otorisasi';
+          }
+        }
+
+        // Terkirim terakhir
+        if (lastSent) {
+          lastSent.textContent = d.lastSent || 'Belum pernah dikirim';
+        }
+
+        // Jumlah low stock
+        if (lowstock) {
+          if (d.lowStockCount > 0) {
+            lowstock.innerHTML = '<span style="color:#dc2626;font-weight:700;">' + d.lowStockCount + ' bahan</span> di bawah minimum';
+          } else {
+            lowstock.innerHTML = '<span style="color:#16a34a;">✅ Semua stok aman</span>';
+          }
+        }
+
+        // Disable tombol kirim tes jika belum otorisasi
+        var btnTes = document.getElementById('btn-kirim-tes');
+        if (btnTes) {
+          btnTes.disabled = !d.sudahOtorisasi;
+          btnTes.title = d.sudahOtorisasi ? '' : 'Otorisasi MailApp diperlukan terlebih dahulu';
+        }
+      })
+      .withFailureHandler(function(e) {
+        if (statusText) statusText.textContent = 'Gagal memeriksa';
+      })
+      .getStatusNotifEmail();
   }
 
   function togglePajakField() {
     var aktif = document.getElementById('set-pajak-aktif').checked;
     var group = document.getElementById('pajak-persen-group');
+    if (group) group.style.display = aktif ? 'block' : 'none';
+  }
+
+  function toggleNotifStokEmailField() {
+    var aktif = document.getElementById('set-notif-stok-email-aktif').checked;
+    var group = document.getElementById('notif-stok-email-group');
     if (group) group.style.display = aktif ? 'block' : 'none';
   }
 
@@ -2219,6 +2460,65 @@
         showToast('Pengaturan pajak disimpan', 'success');
       } else showToast(res.message, 'error');
     }).withFailureHandler(function (e) { showLoading(false); showToast(e.message, 'error'); }).savePengaturan(data);
+  }
+
+  function isValidEmailList(raw) {
+    var text = String(raw || '').trim();
+    if (!text) return true;
+    var parts = text.split(/[;,]/);
+    for (var i = 0; i < parts.length; i++) {
+      var email = String(parts[i] || '').trim();
+      if (!email) continue;
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return false;
+    }
+    return true;
+  }
+
+  function savePengaturanNotifStok() {
+    var aktif = document.getElementById('set-notif-stok-email-aktif').checked;
+    var tujuan = (document.getElementById('set-notif-stok-email-tujuan').value || '').trim();
+    if (aktif && !tujuan) {
+      showToast('Email tujuan wajib diisi saat notifikasi aktif', 'warning');
+      return;
+    }
+    if (!isValidEmailList(tujuan)) {
+      showToast('Format email tidak valid. Pisahkan beberapa email dengan koma.', 'warning');
+      return;
+    }
+    var data = {
+      notif_stok_email_aktif: aktif ? 'Ya' : 'Tidak',
+      notif_stok_email_tujuan: tujuan
+    };
+    showLoading(true);
+    google.script.run.withSuccessHandler(function (res) {
+      showLoading(false);
+      if (res && res.success) {
+        APP.settings.notif_stok_email_aktif = data.notif_stok_email_aktif;
+        APP.settings.notif_stok_email_tujuan = tujuan;
+        document.getElementById('set-notif-stok-email-tujuan').value = tujuan;
+        showToast('Pengaturan notifikasi stok disimpan', 'success');
+      } else {
+        showToast(res ? res.message : 'Gagal menyimpan pengaturan', 'error');
+      }
+    }).withFailureHandler(function (e) {
+      showLoading(false);
+      showToast(e.message, 'error');
+    }).savePengaturan(data);
+  }
+
+  function kirimTesNotifStokEmail() {
+    showLoading(true);
+    google.script.run.withSuccessHandler(function (res) {
+      showLoading(false);
+      if (res && res.success) {
+        showToast(res.message, 'success');
+      } else {
+        showToast(res ? res.message : 'Gagal kirim tes email', 'error');
+      }
+    }).withFailureHandler(function (e) {
+      showLoading(false);
+      showToast(e.message, 'error');
+    }).kirimTesEmailStokRendah();
   }
 
   // ==================== KASIR MANAGEMENT ====================

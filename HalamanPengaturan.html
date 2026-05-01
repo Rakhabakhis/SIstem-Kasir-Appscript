@@ -71,6 +71,93 @@
     </div>
   </div>
 
+  <!-- Notifikasi Email Stok Rendah -->
+  <div class="card" style="margin-top:24px;">
+    <div class="card-header">
+      <h3 style="font-weight:700;font-size:15px;">
+        <span class="material-icons-round" style="font-size:18px;vertical-align:middle;color:var(--primary)">notifications_active</span>
+        Notifikasi Email Stok Rendah
+      </h3>
+      <span id="notif-auth-badge" style="display:none;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;"></span>
+    </div>
+    <div class="card-body">
+
+      <!-- Panel Status Sistem Email -->
+      <div id="notif-status-panel" style="margin-bottom:16px;padding:14px 16px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);">
+        <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">Status Sistem Email</div>
+        <div style="display:grid;grid-template-columns:120px 1fr;gap:6px 12px;align-items:center;font-size:13px;">
+          <span style="color:var(--text-muted);">Status Otorisasi</span>
+          <span id="notif-status-text" style="font-weight:600;">Memeriksa...</span>
+          <span style="color:var(--text-muted);">Email Pengirim</span>
+          <span id="notif-sender-text" style="font-weight:600;color:var(--text-secondary);">—</span>
+          <span style="color:var(--text-muted);">Kuota Harian</span>
+          <span id="notif-quota-text" style="font-weight:600;">—</span>
+          <span style="color:var(--text-muted);">Terkirim Terakhir</span>
+          <span id="notif-last-sent-text" style="color:var(--text-secondary);">—</span>
+          <span style="color:var(--text-muted);">Stok Bermasalah</span>
+          <span id="notif-lowstock-text" style="font-weight:600;">—</span>
+        </div>
+        <!-- Peringatan jika belum otorisasi -->
+        <div id="notif-auth-warning" style="display:none;margin-top:12px;padding:12px;background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;">
+          <div style="font-weight:700;color:#92400e;font-size:12px;margin-bottom:6px;">⚠️ Otorisasi MailApp Belum Diberikan</div>
+          <div style="font-size:12px;color:#78350f;line-height:1.7;">
+            Untuk mengaktifkan notifikasi email, jalankan dari <strong>Apps Script Editor</strong>:
+            <ol style="margin:6px 0 0 16px;padding:0;">
+              <li>Buka <strong>Extensions → Apps Script</strong></li>
+              <li>Pilih fungsi <strong>dapatkanUrlOtorisasi</strong> dari dropdown</li>
+              <li>Klik ▶ <strong>Run</strong> → salin URL dari Log Eksekusi</li>
+              <li>Buka URL di browser → klik <strong>Allow / Izinkan</strong></li>
+              <li>Jalankan <strong>inisialisasiMailApp</strong> untuk verifikasi</li>
+            </ol>
+          </div>
+        </div>
+        <div style="margin-top:10px;">
+          <button class="btn btn-sm btn-secondary" onclick="loadStatusNotifEmail()">
+            <span class="material-icons-round" style="font-size:14px;">refresh</span> Refresh Status
+          </button>
+        </div>
+      </div>
+
+      <!-- Info batasan email pengirim -->
+      <div style="margin-bottom:16px;padding:10px 14px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;font-size:12px;color:#166534;">
+        <span class="material-icons-round" style="font-size:14px;vertical-align:middle;">info</span>
+        <strong>Info:</strong> Email notifikasi selalu dikirim dari akun Google <strong>pemilik script</strong> (yang men-deploy web app ini).
+        Alamat pengirim tidak dapat diubah — ini adalah batasan Google Apps Script MailApp.
+      </div>
+
+      <!-- Toggle aktif -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding:16px;background:var(--bg);border-radius:var(--radius-sm);">
+        <div>
+          <div style="font-weight:600;font-size:14px;">Email Notifikasi Aktif</div>
+          <div style="font-size:12px;color:var(--text-muted);">Kirim email otomatis saat ada bahan baku stok rendah/habis</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="set-notif-stok-email-aktif" onchange="toggleNotifStokEmailField()">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <!-- Email tujuan -->
+      <div class="form-group" id="notif-stok-email-group">
+        <label class="form-label">Email Tujuan Notifikasi</label>
+        <input type="text" id="set-notif-stok-email-tujuan" class="form-control" placeholder="owner@toko.com, manager@toko.com">
+        <div style="font-size:12px;color:var(--text-muted);margin-top:6px;">
+          Bisa beberapa email dipisah koma. Notifikasi dikirim maksimal 1x per 6 jam untuk mencegah spam.
+        </div>
+      </div>
+
+      <!-- Tombol aksi -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-primary" onclick="savePengaturanNotifStok()">
+          <span class="material-icons-round">save</span> Simpan Notifikasi
+        </button>
+        <button class="btn btn-secondary" id="btn-kirim-tes" onclick="kirimTesNotifStokEmail()">
+          <span class="material-icons-round">send</span> Kirim Tes Email
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Manajemen Kasir -->
   <div class="card" style="margin-top:24px;">
     <div class="card-header">

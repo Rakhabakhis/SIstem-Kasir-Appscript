@@ -11,8 +11,11 @@
   </div>
   <div class="filter-row">
     <input type="date" id="laporan-tanggal" class="form-control" style="width:auto" onchange="loadLaporan()">
-    <button class="btn btn-sm btn-secondary" onclick="loadLaporan()">
+    <button class="btn btn-sm btn-secondary" onclick="loadLaporan()" title="Refresh">
       <span class="material-icons-round" style="font-size:14px">refresh</span> Refresh
+    </button>
+    <button class="btn btn-sm btn-secondary" onclick="exportLaporanCSV()" title="Export CSV" id="btn-export-csv" style="gap:4px">
+      <span class="material-icons-round" style="font-size:14px">download</span> Export CSV
     </button>
   </div>
 </div>
@@ -20,64 +23,82 @@
 <div class="page-body">
   <!-- Period Tabs -->
   <div class="tab-nav">
-    <button class="tab-btn active" data-periode="harian" onclick="switchLaporanPeriode('harian')">📅 Harian</button>
-    <button class="tab-btn" data-periode="mingguan" onclick="switchLaporanPeriode('mingguan')">📆 Mingguan</button>
-    <button class="tab-btn" data-periode="bulanan" onclick="switchLaporanPeriode('bulanan')">🗓️ Bulanan</button>
+    <button class="tab-btn active" data-periode="harian" onclick="switchLaporanPeriode('harian')">
+      <span class="material-icons-round" style="font-size:15px;vertical-align:middle">today</span> Harian
+    </button>
+    <button class="tab-btn" data-periode="mingguan" onclick="switchLaporanPeriode('mingguan')">
+      <span class="material-icons-round" style="font-size:15px;vertical-align:middle">date_range</span> Mingguan
+    </button>
+    <button class="tab-btn" data-periode="bulanan" onclick="switchLaporanPeriode('bulanan')">
+      <span class="material-icons-round" style="font-size:15px;vertical-align:middle">calendar_month</span> Bulanan
+    </button>
   </div>
 
-  <!-- Stats Cards -->
-  <div class="stats-grid" style="padding:0 0 24px">
+  <!-- Stats Cards - 5 kartu -->
+  <div class="laporan-stats-grid" style="padding:0 0 24px">
     <div class="stat-card">
-      <div class="stat-icon primary"><span class="material-icons-round">receipt_long</span></div>
+      <div class="stat-icon" style="background:linear-gradient(135deg,#6366f1 0%,#818cf8 100%);color:#fff;box-shadow:0 4px 12px rgba(99,102,241,0.3)">
+        <span class="material-icons-round">receipt_long</span>
+      </div>
       <div class="stat-value" id="stat-total-trx">0</div>
       <div class="stat-label">Total Transaksi</div>
     </div>
     <div class="stat-card">
-      <div class="stat-icon success"><span class="material-icons-round">trending_up</span></div>
-      <div class="stat-value" id="stat-pendapatan" style="color:var(--primary)">Rp 0</div>
+      <div class="stat-icon" style="background:linear-gradient(135deg,#059669 0%,#34d399 100%);color:#fff;box-shadow:0 4px 12px rgba(5,150,105,0.3)">
+        <span class="material-icons-round">payments</span>
+      </div>
+      <div class="stat-value" id="stat-pendapatan" style="color:var(--success)">Rp 0</div>
       <div class="stat-label">Total Pendapatan</div>
     </div>
     <div class="stat-card">
-      <div class="stat-icon warning"><span class="material-icons-round">analytics</span></div>
+      <div class="stat-icon" style="background:linear-gradient(135deg,#d97706 0%,#fbbf24 100%);color:#fff;box-shadow:0 4px 12px rgba(217,119,6,0.3)">
+        <span class="material-icons-round">bar_chart</span>
+      </div>
       <div class="stat-value" id="stat-rata">Rp 0</div>
       <div class="stat-label">Rata-rata / Transaksi</div>
     </div>
     <div class="stat-card">
-      <div class="stat-icon info"><span class="material-icons-round">account_balance_wallet</span></div>
+      <div class="stat-icon" style="background:linear-gradient(135deg,#0891b2 0%,#22d3ee 100%);color:#fff;box-shadow:0 4px 12px rgba(8,145,178,0.3)">
+        <span class="material-icons-round">account_balance_wallet</span>
+      </div>
       <div class="stat-value" id="stat-pajak">Rp 0</div>
       <div class="stat-label">Total Pajak</div>
     </div>
+    <div class="stat-card">
+      <div class="stat-icon" style="background:linear-gradient(135deg,#e11d48 0%,#fb7185 100%);color:#fff;box-shadow:0 4px 12px rgba(225,29,72,0.3)">
+        <span class="material-icons-round">local_offer</span>
+      </div>
+      <div class="stat-value" id="stat-diskon">Rp 0</div>
+      <div class="stat-label">Total Diskon</div>
+    </div>
   </div>
 
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px">
+  <!-- Grafik + Payment Breakdown -->
+  <div class="laporan-chart-grid" style="margin-bottom:24px">
     <!-- Payment Breakdown -->
     <div class="card">
       <div class="card-header">
         <h3 style="font-weight:700;font-size:15px">
           <span class="material-icons-round" style="font-size:18px;vertical-align:middle;color:var(--primary)">pie_chart</span>
-          Berdasarkan Pembayaran
+          Metode Pembayaran
         </h3>
       </div>
-      <div class="card-body" id="payment-breakdown">
-        <p style="color:var(--text-muted);text-align:center">Memuat...</p>
+      <div class="card-body" id="payment-breakdown" style="padding:12px 20px 20px">
+        <p style="color:var(--text-muted);text-align:center;padding:16px">Memuat...</p>
       </div>
     </div>
 
-    <!-- Quick Info -->
+    <!-- Grafik Pendapatan Harian -->
     <div class="card">
-      <div class="card-header">
+      <div class="card-header" style="justify-content:space-between">
         <h3 style="font-weight:700;font-size:15px">
-          <span class="material-icons-round" style="font-size:18px;vertical-align:middle;color:var(--primary)">info</span>
-          Informasi
+          <span class="material-icons-round" style="font-size:18px;vertical-align:middle;color:var(--primary)">bar_chart</span>
+          Grafik Pendapatan
         </h3>
+        <span id="grafik-range-label" style="font-size:11px;color:var(--text-muted)"></span>
       </div>
-      <div class="card-body">
-        <div style="font-size:13px;color:var(--text-secondary);line-height:2">
-          <p>💡 Pilih tanggal dan periode untuk melihat laporan.</p>
-          <p>📊 Data menampilkan transaksi yang <strong>Selesai</strong> saja.</p>
-          <p>🧾 Transaksi yang <strong>Dibatalkan</strong> tidak dihitung.</p>
-          <p>📱 Scroll ke bawah untuk melihat detail transaksi.</p>
-        </div>
+      <div class="card-body" id="grafik-pendapatan-container" style="padding:8px 20px 20px;min-height:140px">
+        <p style="color:var(--text-muted);text-align:center;padding:16px">Memuat grafik...</p>
       </div>
     </div>
   </div>
@@ -147,11 +168,12 @@
 
   <!-- Transaction Table -->
   <div class="card">
-    <div class="card-header">
+    <div class="card-header" style="justify-content:space-between">
       <h3 style="font-weight:700;font-size:15px">
         <span class="material-icons-round" style="font-size:18px;vertical-align:middle;color:var(--primary)">list_alt</span>
         Detail Transaksi
       </h3>
+      <span id="laporan-trx-count" style="font-size:12px;color:var(--text-muted)"></span>
     </div>
     <div style="overflow-x:auto">
       <table class="data-table">
@@ -159,15 +181,17 @@
           <tr>
             <th>ID Transaksi</th>
             <th>Waktu</th>
-            <th>Item</th>
-            <th>Total</th>
+            <th>Pelanggan</th>
+            <th style="text-align:center">Item</th>
+            <th style="text-align:right">Total</th>
             <th>Pembayaran</th>
+            <th>Kasir</th>
             <th>Status</th>
-            <th style="width:60px">Aksi</th>
+            <th style="width:52px">Aksi</th>
           </tr>
         </thead>
         <tbody id="laporan-tbody">
-          <tr><td colspan="7" style="text-align:center;padding:20px;color:var(--text-muted)">Pilih periode dan tanggal</td></tr>
+          <tr><td colspan="9" style="text-align:center;padding:20px;color:var(--text-muted)">Pilih periode dan tanggal</td></tr>
         </tbody>
       </table>
     </div>
@@ -175,7 +199,6 @@
 </div>
 
 <script>
-// Set default date to today
 (function(){
   var el = document.getElementById('laporan-tanggal');
   if (el) {

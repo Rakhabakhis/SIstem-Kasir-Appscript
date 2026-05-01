@@ -61,37 +61,28 @@
     </div>
 
     <!-- Summary Cards -->
-    <div class="stats-grid" style="margin-bottom:16px;">
-      <div class="stat-card">
-        <div class="stat-icon" style="background:var(--primary-light)">
-          <span class="material-icons-round" style="color:var(--primary)">inventory_2</span>
+    <div class="stats-grid bb-stats-grid" style="margin-bottom:16px;">
+      <div id="bb-stat-card-total" class="stat-card bb-stat-card bb-stat-card-active" onclick="setBBStatFilter('all')">
+        <div class="stat-icon bb-stat-icon bb-stat-icon-total">
+          <span class="material-icons-round">inventory_2</span>
         </div>
         <div class="stat-info">
           <div class="stat-value" id="bb-stat-total">0</div>
           <div class="stat-label">Total Bahan</div>
         </div>
       </div>
-      <div class="stat-card">
-        <div class="stat-icon" style="background:var(--success-bg)">
-          <span class="material-icons-round" style="color:var(--success)">check_circle</span>
-        </div>
-        <div class="stat-info">
-          <div class="stat-value" id="bb-stat-aktif">0</div>
-          <div class="stat-label">Bahan Aktif</div>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon" style="background:var(--warning-bg)">
-          <span class="material-icons-round" style="color:var(--warning)">warning</span>
+      <div id="bb-stat-card-lowstock" class="stat-card bb-stat-card" onclick="setBBStatFilter('lowstock')">
+        <div class="stat-icon bb-stat-icon bb-stat-icon-low">
+          <span class="material-icons-round">warning_amber</span>
         </div>
         <div class="stat-info">
           <div class="stat-value" id="bb-stat-lowstock">0</div>
           <div class="stat-label">Stok Rendah</div>
         </div>
       </div>
-      <div class="stat-card">
-        <div class="stat-icon" style="background:var(--danger-bg, #fee2e2)">
-          <span class="material-icons-round" style="color:var(--danger)">remove_circle</span>
+      <div id="bb-stat-card-habis" class="stat-card bb-stat-card" onclick="setBBStatFilter('habis')">
+        <div class="stat-icon bb-stat-icon bb-stat-icon-empty">
+          <span class="material-icons-round">block</span>
         </div>
         <div class="stat-info">
           <div class="stat-value" id="bb-stat-habis">0</div>
@@ -187,6 +178,7 @@
 <script>
 var _allBahanBaku = [];
 var _allLogBahan = [];
+var _bbStatFilter = 'all';
 
 function switchBBTab(tab) {
   var panels = ['daftar', 'log'];
@@ -215,8 +207,9 @@ function loadBahanBakuPage() {
     .withSuccessHandler(function(res) {
       if (res && res.success) {
         _allBahanBaku = res.data || [];
-        renderBahanBakuTable(_allBahanBaku);
         populateGrupFilter();
+        updateBBStatFilterUI();
+        filterBahanBaku();
         updateBBStats();
         checkLowStockAlert();
       } else {
@@ -267,14 +260,32 @@ function renderBahanBakuTable(data) {
 
 function updateBBStats() {
   var total = _allBahanBaku.length;
-  var aktif = _allBahanBaku.filter(function(b) { return b.status === 'Aktif'; }).length;
   var lowstock = _allBahanBaku.filter(function(b) { return b.status === 'Aktif' && b.stok > 0 && b.stok <= b.stokMinimum && b.stokMinimum > 0; }).length;
   var habis = _allBahanBaku.filter(function(b) { return b.status === 'Aktif' && b.stok <= 0; }).length;
   var s = function(id, v) { var el = document.getElementById(id); if (el) el.textContent = v; };
   s('bb-stat-total', total);
-  s('bb-stat-aktif', aktif);
   s('bb-stat-lowstock', lowstock);
   s('bb-stat-habis', habis);
+}
+
+function setBBStatFilter(filter) {
+  _bbStatFilter = filter || 'all';
+  updateBBStatFilterUI();
+  filterBahanBaku();
+}
+
+function updateBBStatFilterUI() {
+  var cards = [
+    { id: 'bb-stat-card-total', filter: 'all' },
+    { id: 'bb-stat-card-lowstock', filter: 'lowstock' },
+    { id: 'bb-stat-card-habis', filter: 'habis' }
+  ];
+  for (var i = 0; i < cards.length; i++) {
+    var el = document.getElementById(cards[i].id);
+    if (!el) continue;
+    if (cards[i].filter === _bbStatFilter) el.classList.add('bb-stat-card-active');
+    else el.classList.remove('bb-stat-card-active');
+  }
 }
 
 function checkLowStockAlert() {
@@ -311,7 +322,13 @@ function filterBahanBaku() {
     var matchK = !keyword || (b.nama + b.grup + b.keterangan).toLowerCase().indexOf(keyword) !== -1;
     var matchG = !grup || b.grup === grup;
     var matchS = !status || b.status === status;
-    return matchK && matchG && matchS;
+    var matchStat = true;
+    if (_bbStatFilter === 'lowstock') {
+      matchStat = b.status === 'Aktif' && b.stok > 0 && b.stok <= b.stokMinimum && b.stokMinimum > 0;
+    } else if (_bbStatFilter === 'habis') {
+      matchStat = b.status === 'Aktif' && b.stok <= 0;
+    }
+    return matchK && matchG && matchS && matchStat;
   });
   renderBahanBakuTable(filtered);
 }
