@@ -300,44 +300,76 @@ function cariProduk(keyword) {
 }
 
 /**
- * Mendapatkan daftar kategori unik (untuk kasir tabs) — hanya dari kolom Kategori di Produk
+ * Mendapatkan daftar kategori untuk kasir tabs dan dropdown produk.
+ * Sumber utama: sheet Kategori (master). Fallback: kolom Kategori di sheet Produk.
  */
 function getKategori() {
   try {
-    var data = getSheetDataSafe(SHEET_PRODUK);
-    var kategoriSet = {};
-    for (var i = 0; i < data.length; i++) {
-      if (data[i].Status === 'Aktif' && data[i].Kategori) {
-        kategoriSet[data[i].Kategori] = true;
+    var katSheet = getSheetSafe(SHEET_KATEGORI);
+    if (katSheet && katSheet.getLastRow() > 1) {
+      var data = katSheet.getRange(2, 1, katSheet.getLastRow() - 1, 1).getValues();
+      var result = [];
+      for (var i = 0; i < data.length; i++) {
+        var nama = String(data[i][0] || '').trim();
+        if (nama) result.push(nama);
+      }
+      return successResponse(result.sort());
+    }
+
+    // Fallback: baca dari kolom Kategori produk aktif (backward compat)
+    var produkData = getSheetDataSafe(SHEET_PRODUK);
+    var katSet = {};
+    for (var j = 0; j < produkData.length; j++) {
+      if (produkData[j].Status === 'Aktif' && produkData[j].Kategori) {
+        katSet[produkData[j].Kategori] = true;
       }
     }
-    return successResponse(Object.keys(kategoriSet).sort());
+    return successResponse(Object.keys(katSet).sort());
   } catch (e) {
     return errorResponse('Gagal memuat kategori: ' + e.message);
   }
 }
 
 /**
- * Mendapatkan semua kategori unik + jumlah produk per kategori (halaman manajemen)
- * Sumber: kolom Kategori di sheet Produk (semua status)
+ * Mendapatkan semua kategori + jumlah produk per kategori (halaman manajemen).
+ * Sumber: sheet Kategori (master) + hitung produk dari sheet Produk.
  */
 function getAllKategori() {
   try {
-    var data = getSheetDataSafe(SHEET_PRODUK);
-    var kategoriSet = {};
+    // Hitung produk per kategori dari sheet Produk
+    var produkData = getSheetDataSafe(SHEET_PRODUK);
     var produkCount = {};
+    for (var i = 0; i < produkData.length; i++) {
+      var k = produkData[i].Kategori;
+      if (k) {
+        produkCount[k] = (produkCount[k] || 0) + 1;
+      }
+    }
 
-    for (var i = 0; i < data.length; i++) {
-      var kat = data[i].Kategori;
-      if (kat) {
-        kategoriSet[kat] = true;
-        if (!produkCount[kat]) produkCount[kat] = 0;
-        produkCount[kat]++;
+    // Ambil daftar kategori dari sheet Kategori (master)
+    var katList = [];
+    var katSheet = getSheetSafe(SHEET_KATEGORI);
+    if (katSheet && katSheet.getLastRow() > 1) {
+      var rows = katSheet.getRange(2, 1, katSheet.getLastRow() - 1, 1).getValues();
+      for (var j = 0; j < rows.length; j++) {
+        var nama = String(rows[j][0] || '').trim();
+        if (nama) katList.push(nama);
+      }
+    }
+
+    // Juga tambahkan kategori dari produk yang belum ada di master (backward compat)
+    var katSet = {};
+    katList.forEach(function(k) { katSet[k] = true; });
+    for (var p = 0; p < produkData.length; p++) {
+      var pk = produkData[p].Kategori;
+      if (pk && !katSet[pk]) {
+        katList.push(pk);
+        katSet[pk] = true;
       }
     }
 
     return successResponse({
-      kategori: Object.keys(kategoriSet).sort(),
+      kategori: katList.sort(),
       produkCount: produkCount
     });
   } catch (e) {
@@ -346,66 +378,126 @@ function getAllKategori() {
 }
 
 /**
- * Cek apakah kategori sudah ada di sheet Produk
- * Digunakan untuk validasi sebelum rename agar tidak tumbukan
+ * Tambah kategori baru ke sheet Kategori (master data).
+ * Kategori langsung tersimpan dan bisa dipakai di dropdown produk.
  */
 function tambahKategoriProduk(nama) {
   try {
     if (!nama || !nama.trim()) return errorResponse('Nama kategori wajib diisi');
     nama = nama.trim();
 
-    // Cek apakah sudah digunakan oleh produk manapun
-    var data = getSheetDataSafe(SHEET_PRODUK);
-    for (var i = 0; i < data.length; i++) {
-      if (data[i].Kategori && data[i].Kategori.toLowerCase() === nama.toLowerCase()) {
-        return errorResponse('Kategori "' + nama + '" sudah ada di produk');
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var katSheet = ss.getSheetByName(SHEET_KATEGORI);
+
+    // Auto-create sheet Kategori jika belum ada
+    if (!katSheet) {
+      katSheet = ss.insertSheet(SHEET_KATEGORI);
+      katSheet.appendRow(['Nama_Kategori']);
+      formatHeader(katSheet);
+      katSheet.setColumnWidth(1, 200);
+    }
+
+    // Cek duplikat
+    if (katSheet.getLastRow() > 1) {
+      var existingData = katSheet.getRange(2, 1, katSheet.getLastRow() - 1, 1).getValues();
+      for (var i = 0; i < existingData.length; i++) {
+        if (String(existingData[i][0]).trim().toLowerCase() === nama.toLowerCase()) {
+          return errorResponse('Kategori "' + nama + '" sudah ada');
+        }
       }
     }
 
-    // Kategori tidak disimpan terpisah — hanya muncul saat ada produk dengan kategori tsb.
-    // Kembalikan sukses dengan petunjuk cara menggunakannya.
-    return successResponse(
-      { nama: nama },
-      'Kategori "' + nama + '" siap digunakan. Tambahkan produk baru dengan kategori ini untuk memunculkannya.'
-    );
+    katSheet.appendRow([nama]);
+
+    // Perbarui data validation di sheet Produk agar kolom Kategori selalu sinkron
+    updateValidasiKategoriSheet();
+
+    return successResponse({ nama: nama }, 'Kategori "' + nama + '" berhasil ditambahkan!');
   } catch (e) {
-    return errorResponse('Gagal: ' + e.message);
+    return errorResponse('Gagal menambahkan kategori: ' + e.message);
   }
 }
 
 /**
- * Rename kategori — update kolom Kategori di semua produk yang menggunakan nama lama
+ * Update data validation kolom Kategori (kolom C) di sheet Produk
+ * agar referensi ke sheet Kategori bersifat dinamis.
+ * Dipanggil otomatis setiap kali kategori ditambah/diubah/dihapus.
+ */
+function updateValidasiKategoriSheet() {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheetProduk = ss.getSheetByName(SHEET_PRODUK);
+    var sheetKategori = ss.getSheetByName(SHEET_KATEGORI);
+    if (!sheetProduk || !sheetKategori) return;
+
+    var lastRow = Math.max(sheetProduk.getLastRow(), 2);
+    var katLastRow = Math.max(sheetKategori.getLastRow(), 2);
+
+    // Buat rule validasi yang merujuk ke range sheet Kategori
+    var katRange = sheetKategori.getRange(2, 1, katLastRow - 1, 1);
+    var rule = SpreadsheetApp.newDataValidation()
+      .requireValueInRange(katRange, true)  // true = tampilkan dropdown
+      .setAllowInvalid(true)               // IZINKAN nilai di luar list (tidak blokir)
+      .setHelpText('Pilih dari daftar kategori. Kelola kategori di halaman Manajemen Kategori.')
+      .build();
+
+    // Terapkan ke seluruh kolom Kategori (kolom C, baris 2 sampai lastRow)
+    sheetProduk.getRange(2, 3, lastRow - 1, 1).setDataValidation(rule);
+  } catch (e) {
+    Logger.log('updateValidasiKategoriSheet error: ' + e.message);
+  }
+}
+
+/**
+ * Rename kategori:
+ * 1. Update nama di sheet Kategori (master)
+ * 2. Update kolom Kategori di semua produk yang menggunakan nama lama
  */
 function renameKategori(namaLama, namaBaru) {
   try {
     if (!namaLama || !namaBaru) return errorResponse('Nama kategori wajib diisi');
     namaBaru = namaBaru.trim();
-    if (namaLama === namaBaru) return errorResponse('Nama kategori sama');
+    if (namaLama.trim() === namaBaru) return errorResponse('Nama kategori sama');
 
-    // Cek duplikat nama baru di produk lain
-    var data = getSheetDataSafe(SHEET_PRODUK);
-    for (var k = 0; k < data.length; k++) {
-      if (data[k].Kategori &&
-          data[k].Kategori.toLowerCase() === namaBaru.toLowerCase() &&
-          data[k].Kategori !== namaLama) {
-        return errorResponse('Kategori "' + namaBaru + '" sudah digunakan oleh produk lain');
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var katSheet = ss.getSheetByName(SHEET_KATEGORI);
+
+    // Cek duplikat nama baru
+    if (katSheet && katSheet.getLastRow() > 1) {
+      var katData = katSheet.getRange(2, 1, katSheet.getLastRow() - 1, 1).getValues();
+      for (var k = 0; k < katData.length; k++) {
+        var existing = String(katData[k][0]).trim().toLowerCase();
+        if (existing === namaBaru.toLowerCase() && String(katData[k][0]).trim() !== namaLama) {
+          return errorResponse('Kategori "' + namaBaru + '" sudah ada');
+        }
+      }
+
+      // Update di sheet Kategori
+      for (var m = 0; m < katData.length; m++) {
+        if (String(katData[m][0]).trim() === namaLama) {
+          katSheet.getRange(m + 2, 1).setValue(namaBaru);
+          break;
+        }
       }
     }
 
-    // Update kolom Kategori di semua produk yang menggunakan namaLama
-    var sheet = getSheet(SHEET_PRODUK);
+    // Update kolom Kategori di sheet Produk
+    var produkData = getSheetDataSafe(SHEET_PRODUK);
+    var sheetProduk = getSheet(SHEET_PRODUK);
     var count = 0;
-    for (var i = 0; i < data.length; i++) {
-      if (data[i].Kategori === namaLama) {
-        sheet.getRange(data[i]._rowIndex, 3).setValue(namaBaru);
+    for (var i = 0; i < produkData.length; i++) {
+      if (produkData[i].Kategori === namaLama) {
+        sheetProduk.getRange(produkData[i]._rowIndex, 3).setValue(namaBaru);
         count++;
       }
     }
 
-    if (count === 0) return errorResponse('Tidak ada produk dengan kategori "' + namaLama + '"');
+    // Perbarui data validation setelah rename
+    updateValidasiKategoriSheet();
+
     return successResponse(
       { count: count },
-      'Kategori diubah: "' + namaLama + '" → "' + namaBaru + '" (' + count + ' produk diperbarui)'
+      'Kategori diubah: "' + namaLama + '" → "' + namaBaru + '"' + (count > 0 ? ' (' + count + ' produk diperbarui)' : '')
     );
   } catch (e) {
     return errorResponse('Gagal mengubah kategori: ' + e.message);
@@ -413,32 +505,102 @@ function renameKategori(namaLama, namaBaru) {
 }
 
 /**
- * Hapus kategori — pindahkan semua produk dengan kategori ini ke "Lainnya"
+ * Hapus kategori:
+ * 1. Hapus dari sheet Kategori (master)
+ * 2. Pindahkan produk dengan kategori ini ke "Lainnya"
  */
 function hapusKategori(nama) {
   try {
     if (!nama) return errorResponse('Nama kategori wajib');
 
-    var sheet = getSheet(SHEET_PRODUK);
-    var data = getSheetDataSafe(SHEET_PRODUK);
-    var count = 0;
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var katSheet = ss.getSheetByName(SHEET_KATEGORI);
 
-    for (var i = 0; i < data.length; i++) {
-      if (data[i].Kategori === nama) {
-        sheet.getRange(data[i]._rowIndex, 3).setValue('Lainnya');
+    // Hapus baris dari sheet Kategori
+    if (katSheet && katSheet.getLastRow() > 1) {
+      var katData = katSheet.getRange(2, 1, katSheet.getLastRow() - 1, 1).getValues();
+      for (var k = katData.length - 1; k >= 0; k--) { // dari bawah agar rowIndex tidak geser
+        if (String(katData[k][0]).trim() === nama) {
+          katSheet.deleteRow(k + 2);
+          break;
+        }
+      }
+    }
+
+    // Pindahkan produk ke "Lainnya"
+    var sheetProduk = getSheet(SHEET_PRODUK);
+    var produkData = getSheetDataSafe(SHEET_PRODUK);
+    var count = 0;
+    for (var i = 0; i < produkData.length; i++) {
+      if (produkData[i].Kategori === nama) {
+        sheetProduk.getRange(produkData[i]._rowIndex, 3).setValue('Lainnya');
         count++;
       }
     }
 
-    if (count > 0) {
-      return successResponse(
-        { count: count },
-        'Kategori "' + nama + '" dihapus. ' + count + ' produk dipindahkan ke "Lainnya".'
-      );
-    } else {
-      return successResponse(null, 'Kategori "' + nama + '" tidak memiliki produk, tidak ada yang diubah.');
-    }
+    // Perbarui data validation setelah hapus
+    updateValidasiKategoriSheet();
+
+    return successResponse(
+      { count: count },
+      'Kategori "' + nama + '" dihapus.' + (count > 0 ? ' ' + count + ' produk dipindahkan ke "Lainnya".' : '')
+    );
   } catch (e) {
     return errorResponse('Gagal menghapus kategori: ' + e.message);
   }
 }
+
+/**
+ * MIGRASI: Impor semua kategori unik dari sheet Produk ke sheet Kategori (master).
+ * Jalankan SATU KALI dari GAS Editor setelah upload kode ini.
+ * Aman dijalankan berulang (tidak duplikat).
+ */
+function migrasiKategoriDariProduk() {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var katSheet = ss.getSheetByName(SHEET_KATEGORI);
+
+    if (!katSheet) {
+      katSheet = ss.insertSheet(SHEET_KATEGORI);
+      katSheet.appendRow(['Nama_Kategori']);
+      formatHeader(katSheet);
+      katSheet.setColumnWidth(1, 200);
+    }
+
+    // Kumpulkan kategori yang sudah ada di sheet Kategori
+    var existing = {};
+    if (katSheet.getLastRow() > 1) {
+      var existRows = katSheet.getRange(2, 1, katSheet.getLastRow() - 1, 1).getValues();
+      for (var e = 0; e < existRows.length; e++) {
+        var n = String(existRows[e][0]).trim().toLowerCase();
+        if (n) existing[n] = true;
+      }
+    }
+
+    // Ambil semua kategori unik dari sheet Produk
+    var produkData = getSheetDataSafe(SHEET_PRODUK);
+    var toAdd = [];
+    var seen = {};
+    for (var i = 0; i < produkData.length; i++) {
+      var kat = String(produkData[i].Kategori || '').trim();
+      if (kat && !existing[kat.toLowerCase()] && !seen[kat.toLowerCase()]) {
+        toAdd.push([kat]);
+        seen[kat.toLowerCase()] = true;
+      }
+    }
+
+    if (toAdd.length > 0) {
+      katSheet.getRange(katSheet.getLastRow() + 1, 1, toAdd.length, 1).setValues(toAdd);
+    }
+
+    SpreadsheetApp.getUi().alert(
+      '✅ Migrasi Kategori Selesai!\n' +
+      '- ' + toAdd.length + ' kategori baru ditambahkan ke sheet "Kategori"\n' +
+      '- ' + Object.keys(existing).length + ' kategori sudah ada sebelumnya\n\n' +
+      'Total: ' + (toAdd.length + Object.keys(existing).length) + ' kategori di master sheet.'
+    );
+  } catch (e) {
+    SpreadsheetApp.getUi().alert('❌ Gagal migrasi: ' + e.message);
+  }
+}
+

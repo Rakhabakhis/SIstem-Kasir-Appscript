@@ -14,6 +14,7 @@ const SHEET_KASIR = 'Kasir';
 const SHEET_BAHAN_BAKU = 'BahanBaku';
 const SHEET_RESEP_PRODUK = 'ResepProduk';
 const SHEET_LOG_BAHAN_BAKU = 'LogBahanBaku';
+const SHEET_KATEGORI = 'Kategori'; // Master data kategori produk
 
 // ==================== SPREADSHEET ACCESS ====================
 

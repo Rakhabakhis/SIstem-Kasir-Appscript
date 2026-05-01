@@ -240,7 +240,7 @@
 
       if (APP.viewMode === 'list') {
         html += '<div class="product-card" onclick="' + (isHabis ? '' : "addToCart('" + p.id + "')") + '" style="' + disabledStyle + '">' +
-          '<img class="product-card-img" src="' + (p.gambar || '') + '" alt="' + p.nama + '" onerror="this.src=\'https://placehold.co/80/e2e8f0/94a3b8?text=-\'">' +
+          '<img class="product-card-img" src="' + convertGDriveUrl(p.gambar || '') + '" alt="' + p.nama + '" onerror="this.src=\'https://placehold.co/80/e2e8f0/94a3b8?text=-\'">' +
           '<div class="product-card-body">' +
           '<div class="product-name">' + p.nama + varianIndicator + '</div>' +
           '<div class="product-desc">' + (p.deskripsi || '') + '</div>' +
@@ -253,7 +253,7 @@
       } else {
         html += '<div class="product-card" onclick="' + (isHabis ? '' : "addToCart('" + p.id + "')") + '" style="' + disabledStyle + '">' +
           '<div class="stock-badge ' + stockClass + '">' + stockText + '</div>' +
-          '<img class="product-card-img" src="' + (p.gambar || '') + '" alt="' + p.nama + '" onerror="this.src=\'https://placehold.co/300x200/e2e8f0/94a3b8?text=No+Image\'">' +
+          '<img class="product-card-img" src="' + convertGDriveUrl(p.gambar || '') + '" alt="' + p.nama + '" onerror="this.src=\'https://placehold.co/300x200/e2e8f0/94a3b8?text=No+Image\'">' +
           '<div class="product-card-body">' +
           '<div class="product-name">' + p.nama + '</div>' +
           (hasPilihan ? '<div style="font-size:10px;color:var(--primary);margin-bottom:2px"><span class="material-icons-round" style="font-size:11px;vertical-align:middle">tune</span> Pilih Rasa</div>' : '<div class="product-desc">' + (p.deskripsi || '') + '</div>') +
@@ -428,7 +428,7 @@
         : '<span class="add-catatan-link" onclick="toggleCatatan(\'' + ck + '\')">Tambahkan catatan</span>';
 
       html += '<div class="order-item">' +
-        '<img class="order-item-img" src="' + (item.gambar || '') + '" onerror="this.src=\'https://placehold.co/80/e2e8f0/94a3b8?text=-\'">' +
+        '<img class="order-item-img" src="' + convertGDriveUrl(item.gambar || '') + '" onerror="this.src=\'https://placehold.co/80/e2e8f0/94a3b8?text=-\'">' +
         '<div class="order-item-info">' +
         '<div class="order-item-name">' + item.nama + '</div>' +
         varianChip +
@@ -724,7 +724,7 @@
     }
 
     var html = '<div style="text-align:center;margin-bottom:16px">' +
-      '<div style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#f59e0b 0%,#fb923c 100%);box-shadow:0 8px 20px rgba(245,158,11,0.4);display:flex;align-items:center;justify-content:center;margin:0 auto 16px"><span class="material-icons-round" style="font-size:34px;color:#fff">receipt_long</span></div>' +
+      '<div style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#059669 0%,#34d399 100%);box-shadow:0 8px 20px rgba(5,150,105,0.4);display:flex;align-items:center;justify-content:center;margin:0 auto 16px"><span class="material-icons-round" style="font-size:34px;color:#fff">receipt_long</span></div>' +
       '<h3 style="margin-bottom:4px">Pesanan Berhasil Ditambahkan</h3>' +
       '</div>' +
       '<div class="pesanan-success-card">' +
@@ -1553,27 +1553,60 @@
       .getAllProdukAdmin();
   }
 
-  // Isi dropdown kategori di form produk dari data produk yang sudah dimuat
+  // Isi dropdown kategori di form produk — langsung dari backend (master sheet Kategori)
   function populateKategoriDropdown(selectedValue) {
     var sel = document.getElementById('produk-kategori');
     if (!sel) return;
-    var katSet = {};
-    // Dari cache produk admin
-    for (var i = 0; i < _allProdukAdminData.length; i++) {
-      if (_allProdukAdminData[i].kategori) katSet[_allProdukAdminData[i].kategori] = true;
-    }
-    // Juga dari APP.produk jika ada
-    if (window.APP && APP.produk) {
-      for (var j = 0; j < APP.produk.length; j++) {
-        if (APP.produk[j].kategori) katSet[APP.produk[j].kategori] = true;
-      }
-    }
-    var html = '<option value="">Pilih kategori...</option>';
-    Object.keys(katSet).sort().forEach(function (k) {
-      var selected = (k === selectedValue) ? ' selected' : '';
-      html += '<option value="' + k + '"' + selected + '>' + k + '</option>';
-    });
-    sel.innerHTML = html;
+
+    // Tampilkan loading state sementara
+    sel.innerHTML = '<option value="">Memuat kategori...</option>';
+    sel.disabled = true;
+
+    google.script.run
+      .withSuccessHandler(function(res) {
+        sel.disabled = false;
+        var katList = (res && res.success && Array.isArray(res.data)) ? res.data : [];
+
+        // Fallback ke cache lokal jika kosong
+        if (katList.length === 0) {
+          var katSet = {};
+          for (var i = 0; i < _allProdukAdminData.length; i++) {
+            if (_allProdukAdminData[i].kategori) katSet[_allProdukAdminData[i].kategori] = true;
+          }
+          if (window.APP && APP.produk) {
+            for (var j = 0; j < APP.produk.length; j++) {
+              if (APP.produk[j].kategori) katSet[APP.produk[j].kategori] = true;
+            }
+          }
+          katList = Object.keys(katSet).sort();
+        }
+
+        var html = '<option value="">Pilih kategori...</option>';
+        katList.forEach(function(k) {
+          var selected = (k === selectedValue) ? ' selected' : '';
+          html += '<option value="' + k + '"' + selected + '>' + k + '</option>';
+        });
+        sel.innerHTML = html;
+
+        // Jika selectedValue tidak ada di list, set kembali (edit produk)
+        if (selectedValue) sel.value = selectedValue;
+      })
+      .withFailureHandler(function() {
+        sel.disabled = false;
+        // Fallback ke cache lokal
+        var katSet = {};
+        for (var i = 0; i < _allProdukAdminData.length; i++) {
+          if (_allProdukAdminData[i].kategori) katSet[_allProdukAdminData[i].kategori] = true;
+        }
+        var html = '<option value="">Pilih kategori...</option>';
+        Object.keys(katSet).sort().forEach(function(k) {
+          var selected = (k === selectedValue) ? ' selected' : '';
+          html += '<option value="' + k + '"' + selected + '>' + k + '</option>';
+        });
+        sel.innerHTML = html;
+        if (selectedValue) sel.value = selectedValue;
+      })
+      .getKategori();
   }
 
   function renderProdukTable(data) {
@@ -1601,7 +1634,7 @@
         '<td>' + p.id + '</td>' +
         '<td>' +
         '<div style="display:flex;align-items:center;gap:8px;">' +
-        '<img src="' + imgSrc + '" style="width:36px;height:36px;border-radius:6px;object-fit:cover" onerror="this.style.display=\'none\'">' +
+        '<img src="' + convertGDriveUrl(imgSrc) + '" style="width:36px;height:36px;border-radius:6px;object-fit:cover" onerror="this.style.display=\'none\'">' +
         '<span>' + p.nama + '</span>' +
         '</div>' +
         '</td>' +
@@ -1633,6 +1666,11 @@
     document.getElementById('produk-form-title').textContent = 'Tambah Produk Baru';
     document.getElementById('produk-form').reset();
     document.getElementById('produk-id-edit').value = '';
+    // Reset checkbox gratis
+    var cbGratis = document.getElementById('produk-gratis');
+    var hargaEl = document.getElementById('produk-harga');
+    if (cbGratis) { cbGratis.checked = false; }
+    if (hargaEl) { hargaEl.disabled = false; hargaEl.placeholder = '35000'; }
     var statusGroup = document.getElementById('produk-status-group');
     if (statusGroup) statusGroup.style.display = 'none';
     populateKategoriDropdown('');
@@ -1640,6 +1678,24 @@
     APP.resepEditTemp = [];
     renderResepList();
     showModal('modal-produk');
+  }
+
+  // Toggle field harga ketika checkbox Gratis dicentang
+  function toggleHargaGratis(cb) {
+    var hargaEl = document.getElementById('produk-harga');
+    if (!hargaEl) return;
+    if (cb.checked) {
+      hargaEl.value = 0;
+      hargaEl.disabled = true;
+      hargaEl.style.background = 'var(--bg)';
+      hargaEl.style.color = 'var(--text-muted)';
+    } else {
+      hargaEl.disabled = false;
+      hargaEl.value = '';
+      hargaEl.style.background = '';
+      hargaEl.style.color = '';
+      hargaEl.focus();
+    }
   }
 
   function editProdukForm(id) {
@@ -1656,7 +1712,16 @@
             document.getElementById('produk-id-edit').value = p.id;
             document.getElementById('produk-nama').value = p.nama;
             populateKategoriDropdown(p.kategori);
-            document.getElementById('produk-harga').value = p.harga;
+            // Handle harga gratis
+            var cbGratis = document.getElementById('produk-gratis');
+            var hargaEl = document.getElementById('produk-harga');
+            if (p.harga === 0) {
+              if (cbGratis) { cbGratis.checked = true; }
+              if (hargaEl) { hargaEl.value = 0; hargaEl.disabled = true; hargaEl.style.background = 'var(--bg)'; hargaEl.style.color = 'var(--text-muted)'; }
+            } else {
+              if (cbGratis) { cbGratis.checked = false; }
+              if (hargaEl) { hargaEl.disabled = false; hargaEl.style.background = ''; hargaEl.style.color = ''; hargaEl.value = p.harga; }
+            }
             document.getElementById('produk-deskripsi').value = p.deskripsi || '';
             document.getElementById('produk-gambar').value = p.gambar || '';
             var statusGroup = document.getElementById('produk-status-group');
@@ -1683,16 +1748,28 @@
   function saveProduk() {
     var id = document.getElementById('produk-id-edit').value;
     var statusEl = document.getElementById('produk-status');
+    var cbGratis = document.getElementById('produk-gratis');
+    var isGratis = cbGratis && cbGratis.checked;
+    var hargaEl = document.getElementById('produk-harga');
+    // Aktifkan dulu sebelum baca value (disabled field tidak terbaca)
+    if (isGratis && hargaEl) hargaEl.disabled = false;
     var data = {
       nama: document.getElementById('produk-nama').value,
       kategori: document.getElementById('produk-kategori').value,
-      harga: document.getElementById('produk-harga').value,
+      harga: isGratis ? 0 : (hargaEl ? hargaEl.value : 0),
       deskripsi: document.getElementById('produk-deskripsi').value,
       gambar: document.getElementById('produk-gambar').value,
       status: (id && statusEl) ? statusEl.value : 'Aktif'
     };
-    if (!data.nama || !data.kategori || !data.harga) {
-      showToast('Nama, kategori, dan harga wajib diisi', 'warning');
+    // Kembalikan disabled jika gratis
+    if (isGratis && hargaEl) { hargaEl.disabled = true; hargaEl.style.background = 'var(--bg)'; hargaEl.style.color = 'var(--text-muted)'; }
+
+    if (!data.nama || !data.kategori) {
+      showToast('Nama dan kategori produk wajib diisi', 'warning');
+      return;
+    }
+    if (!isGratis && (data.harga === '' || data.harga === null || isNaN(Number(data.harga)))) {
+      showToast('Harga produk wajib diisi, atau centang "Harga Gratis"', 'warning');
       return;
     }
     showLoading(true);
@@ -2628,6 +2705,53 @@
   function fmtRp(n) {
     n = parseInt(n) || 0;
     return 'Rp ' + n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  }
+
+  /**
+   * Konversi URL Google Drive ke format thumbnail yang bisa di-embed di browser.
+   *
+   * Masalah: URL format lama "drive.google.com/uc?id=..." sudah diblokir Google
+   * untuk cross-origin embedding (hotlink protection) sejak 2023.
+   * Solusi: Gunakan "drive.google.com/thumbnail?id=...&sz=w400" yang masih diizinkan
+   * untuk file yang sudah diset "Anyone with the link can view".
+   *
+   * Mendukung format input:
+   * - https://drive.google.com/uc?id=FILE_ID
+   * - https://drive.google.com/file/d/FILE_ID/view
+   * - https://drive.google.com/open?id=FILE_ID
+   * - https://lh3.googleusercontent.com/d/FILE_ID (sudah benar, tidak diubah)
+   * - URL lain / kosong (dikembalikan apa adanya)
+   */
+  function convertGDriveUrl(url) {
+    if (!url || typeof url !== 'string') return url || '';
+    url = url.trim();
+    if (!url) return '';
+
+    var fileId = null;
+
+    // Format: /uc?id=FILE_ID atau /uc?export=view&id=FILE_ID
+    var ucMatch = url.match(/[?&]id=([a-zA-Z0-9_-]{20,})/);
+    if (ucMatch) fileId = ucMatch[1];
+
+    // Format: /file/d/FILE_ID/
+    if (!fileId) {
+      var fileMatch = url.match(/\/file\/d\/([a-zA-Z0-9_-]{20,})/);
+      if (fileMatch) fileId = fileMatch[1];
+    }
+
+    // Format: /open?id=FILE_ID
+    if (!fileId) {
+      var openMatch = url.match(/\/open\?id=([a-zA-Z0-9_-]{20,})/);
+      if (openMatch) fileId = openMatch[1];
+    }
+
+    if (fileId) {
+      // Gunakan thumbnail API - reliable untuk semua file publik
+      return 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w400';
+    }
+
+    // Bukan URL Google Drive, kembalikan apa adanya
+    return url;
   }
   function fmtDateISO(d) {
     var y = d.getFullYear();
