@@ -71,6 +71,43 @@
     </div>
   </div>
 
+  <!-- ===== PENGATURAN LOGIN ===== -->
+  <div class="card" style="margin-top:24px;">
+    <div class="card-header">
+      <h3 style="font-weight:700;font-size:15px;">
+        <span class="material-icons-round" style="font-size:18px;vertical-align:middle;color:var(--primary)">lock</span>
+        Sistem Login
+      </h3>
+      <span id="login-status-badge" style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;background:#d1fae5;color:#065f46;border:1px solid #6ee7b7">Aktif</span>
+    </div>
+    <div class="card-body">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding:16px;background:var(--bg);border-radius:var(--radius-sm);">
+        <div>
+          <div style="font-weight:600;font-size:14px;">Wajib Login dengan PIN</div>
+          <div style="font-size:12px;color:var(--text-muted);">Jika dinonaktifkan, siapapun dengan URL bisa langsung masuk tanpa PIN</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="set-login-aktif" checked onchange="savePengaturanLogin()">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div id="login-nonaktif-warning" style="display:none;padding:12px 14px;background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;font-size:12px;color:#92400e;margin-bottom:16px;">
+        <div style="display:flex;align-items:flex-start;gap:8px;">
+          <span class="material-icons-round" style="font-size:16px;flex-shrink:0;margin-top:1px;">warning</span>
+          <div>
+            <strong>Perhatian:</strong> Login dinonaktifkan. Siapapun yang memiliki URL aplikasi dapat langsung mengakses kasir tanpa PIN.
+            Pastikan URL hanya dibagikan ke petugas yang berwenang.
+          </div>
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);padding:10px 14px;background:var(--bg);border-radius:8px;border:1px solid var(--border);">
+        <span class="material-icons-round" style="font-size:14px;vertical-align:middle;">info</span>
+        <strong>Mode Login Nonaktif:</strong> Aplikasi akan otomatis masuk sebagai <strong>Admin</strong> tanpa meminta nama atau PIN.
+        Berguna untuk perangkat kasir yang sudah diamankan secara fisik (tablet/PC khusus kasir).
+      </div>
+    </div>
+  </div>
+
   <!-- Notifikasi Email Stok Rendah -->
   <div class="card" style="margin-top:24px;">
     <div class="card-header">

@@ -3913,7 +3913,147 @@
 
   @media (max-width: 768px) {
     .bb-stats-grid {
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    .bb-stat-card {
+      padding: 12px;
+    }
+    .bb-stat-icon {
+      width: 32px;
+      height: 32px;
+      margin-bottom: 6px;
+    }
+    .bb-stat-icon .material-icons-round {
+      font-size: 16px;
+    }
+    /* Switch tabel ↔ kartu di mobile */
+    .bb-desktop-view {
+      display: none !important;
+    }
+    .bb-mobile-view {
+      display: block !important;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .bb-stats-grid {
       grid-template-columns: 1fr;
+    }
+  }
+
+  /* Desktop: sembunyikan mobile view */
+  @media (min-width: 769px) {
+    .bb-mobile-view {
+      display: none !important;
+    }
+    .bb-desktop-view {
+      display: block !important;
+    }
+  }
+
+  /* Log filter responsif */
+  @media (max-width: 640px) {
+    .log-filter-row {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 8px;
+    }
+    .log-date-range {
+      flex-direction: column;
+      gap: 6px;
+    }
+  }
+
+  /* =====================================================
+     RIWAYAT TRANSAKSI - Responsive
+     ===================================================== */
+
+  /* Desktop: tampilkan tabel, sembunyikan mobile cards */
+  @media (min-width: 769px) {
+    .trx-mobile-view { display: none !important; }
+    .trx-desktop-view { display: block !important; }
+  }
+
+  /* Mobile: sembunyikan tabel, tampilkan cards */
+  @media (max-width: 768px) {
+    .trx-desktop-view { display: none !important; }
+    .trx-mobile-view { display: block !important; }
+
+    /* Filter row di header riwayat: wrap ke bawah */
+    #page-riwayat .page-header .filter-row,
+    #page-laporan .page-header .filter-row {
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    #page-riwayat .page-header .search-bar {
+      max-width: 100% !important;
+      flex: 1;
+    }
+  }
+
+  /* =====================================================
+     LAPORAN PENJUALAN - Responsive
+     ===================================================== */
+
+  /* Stats grid laporan: 3-col by default, 2-col tablet, 1-col mobile */
+  .laporan-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  @media (max-width: 1100px) {
+    .laporan-stats-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  @media (max-width: 768px) {
+    .laporan-stats-grid {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    /* Chart grid: stack vertically */
+    .laporan-chart-grid {
+      grid-template-columns: 1fr !important;
+    }
+
+    /* Item stats mini: 1 col on small mobile */
+    .item-stats-mini-grid {
+      grid-template-columns: 1fr !important;
+    }
+
+    /* Tab nav scroll horizontally */
+    .tab-nav {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* Item periode tabs: scroll */
+    .item-periode-tabs {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* Card header filter row wrap */
+    .card-header {
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .laporan-stats-grid {
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .stat-card {
+      padding: 14px;
+    }
+    .stat-value {
+      font-size: 20px !important;
     }
   }
 </style>

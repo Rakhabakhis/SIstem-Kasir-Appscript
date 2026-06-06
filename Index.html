@@ -18,20 +18,31 @@
 
 <body>
 
-  <!-- ===== LOGIN SCREEN ===== -->
-  <div id="login-screen" class="login-screen">
+  <!-- ===== LOGIN SCREEN =====
+       Data sudah dirender server-side oleh doGet (template variable).
+       Jika login nonaktif: div ini langsung hidden, tidak perlu tunggu JS.
+       Jika login aktif: dropdown kasir sudah terisi tanpa google.script.run.
+  -->
+  <div id="login-screen" class="login-screen" <?!= !loginAktif ? 'style="display:none"' : '' ?>>
     <div class="login-card">
       <div class="login-logo">
         <div class="sidebar-logo" style="width:56px;height:56px;font-size:24px;border-radius:14px;">K</div>
       </div>
-      <h2 style="text-align:center;margin-bottom:4px;font-size:22px;">Sistem Kasir</h2>
+      <h2 style="text-align:center;margin-bottom:4px;font-size:22px;"><?!= namaToko ?></h2>
       <p style="text-align:center;color:var(--text-muted);margin-bottom:24px;font-size:13px;">Masukkan nama dan PIN
         untuk login</p>
 
       <div class="form-group">
         <label class="form-label">Nama Kasir</label>
         <select id="login-nama" class="form-control form-select" style="font-size:15px;">
-          <option value="">Memuat...</option>
+          <?!= (function() {
+            var list = JSON.parse(kasirListJson);
+            var html = '<option value="">-- Pilih Kasir --</option>';
+            for (var i = 0; i < list.length; i++) {
+              html += '<option value="' + list[i].nama + '">' + list[i].nama + '</option>';
+            }
+            return html;
+          })() ?>
         </select>
       </div>
       <div class="form-group">
@@ -474,6 +485,13 @@
             <label class="form-label">Keterangan</label>
             <input type="text" id="bb-keterangan" class="form-control" placeholder="Catatan tambahan (opsional)">
           </div>
+          <div class="form-group" id="bb-status-group" style="display:none;">
+            <label class="form-label">Status Bahan Baku</label>
+            <select id="bb-status" class="form-control form-select">
+              <option value="Aktif">✅ Aktif — Bisa digunakan di resep</option>
+              <option value="Nonaktif">❌ Nonaktif — Disembunyikan dari resep</option>
+            </select>
+          </div>
         </form>
       </div>
       <div class="modal-footer">
@@ -605,11 +623,98 @@
     </div>
   </div>
 
+  <!-- ===== MODAL: EXPORT CSV ===== -->
+  <div id="modal-export-csv" class="modal-overlay" onclick="if(event.target===this)closeModal('modal-export-csv')">
+    <div class="modal-container" style="max-width:440px">
+      <div class="modal-header">
+        <h3 class="modal-title">
+          <span class="material-icons-round" style="font-size:18px;vertical-align:middle;color:var(--primary)">download</span>
+          Export Laporan CSV
+        </h3>
+        <button class="modal-close" onclick="closeModal('modal-export-csv')"><span class="material-icons-round">close</span></button>
+      </div>
+      <div class="modal-body" style="padding:20px 24px">
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">Pilih periode data yang ingin diekspor. File CSV siap dibuka di Excel / Google Sheets.</p>
+
+        <!-- Harian -->
+        <div style="border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+            <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#6366f1,#818cf8);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+              <span class="material-icons-round" style="font-size:18px">today</span>
+            </div>
+            <div>
+              <div style="font-weight:700;font-size:14px">Harian</div>
+              <div style="font-size:11px;color:var(--text-muted)">Export data satu hari tertentu</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input type="date" id="export-tgl-harian" class="form-control" style="flex:1">
+            <button class="btn btn-primary btn-sm" onclick="_doExportCSV('harian')" style="white-space:nowrap">
+              <span class="material-icons-round" style="font-size:14px">download</span> Export
+            </button>
+          </div>
+        </div>
+
+        <!-- Mingguan -->
+        <div style="border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+            <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#059669,#34d399);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+              <span class="material-icons-round" style="font-size:18px">date_range</span>
+            </div>
+            <div>
+              <div style="font-weight:700;font-size:14px">Mingguan</div>
+              <div style="font-size:11px;color:var(--text-muted)">Export data minggu ini (Minggu s/d Sabtu)</div>
+            </div>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="_doExportCSV('mingguan')" style="width:100%">
+            <span class="material-icons-round" style="font-size:14px">download</span> Export Minggu Ini
+          </button>
+        </div>
+
+        <!-- Bulanan -->
+        <div style="border:1px solid var(--border);border-radius:12px;padding:16px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+            <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#d97706,#fbbf24);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+              <span class="material-icons-round" style="font-size:18px">calendar_month</span>
+            </div>
+            <div>
+              <div style="font-weight:700;font-size:14px">Bulanan</div>
+              <div style="font-size:11px;color:var(--text-muted)">Export data satu bulan penuh</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input type="month" id="export-bulan" class="form-control" style="flex:1">
+            <button class="btn btn-primary btn-sm" onclick="_doExportCSV('bulanan')" style="white-space:nowrap">
+              <span class="material-icons-round" style="font-size:14px">download</span> Export
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('modal-export-csv')">Tutup</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Hidden: Thermal Receipt Print Container -->
   <div id="receipt-print-area" style="display:none;"></div>
 
   <?!= include('JavaScript') ?>
 
 </body>
+
+<script>
+// Set default tanggal export saat halaman load
+(function() {
+  var now = new Date();
+  var y = now.getFullYear();
+  var m = ('0'+(now.getMonth()+1)).slice(-2);
+  var d = ('0'+now.getDate()).slice(-2);
+  var tglEl = document.getElementById('export-tgl-harian');
+  var bulanEl = document.getElementById('export-bulan');
+  if (tglEl) tglEl.value = y + '-' + m + '-' + d;
+  if (bulanEl) bulanEl.value = y + '-' + m;
+})();
+</script>
 
 </html>

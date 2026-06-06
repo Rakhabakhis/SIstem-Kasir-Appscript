@@ -28,35 +28,40 @@
 
   // ==================== LOGIN ====================
   function initLogin() {
+    var loginScreen = document.getElementById('login-screen');
+    // Jika login-screen sudah hidden oleh server-side rendering (login nonaktif)
+    // langsung inisialisasi app sebagai Admin
+    if (!loginScreen || loginScreen.style.display === 'none') {
+      _autoLoginAsAdmin();
+      return;
+    }
+    // Jika login aktif: dropdown sudah terisi server-side, tidak perlu fetch lagi
+    // Tidak perlu google.script.run sama sekali
+  }
+
+  function _autoLoginAsAdmin() {
+    APP.loggedInKasir = { id: 'KSR-0001', nama: 'Admin', role: 'Admin' };
+    var loginScreen = document.getElementById('login-screen');
+    if (loginScreen) loginScreen.style.display = 'none';
+    document.getElementById('app-container').style.display = 'flex';
+    document.getElementById('user-name').textContent = 'Admin';
+    document.getElementById('avatar-initial').textContent = 'A';
+    var mob = document.getElementById('mobile-order-btn');
+    if (mob) mob.style.display = '';
+    initApp();
+  }
+
+  function _showLoginForm(kasirList) {
+    // Fungsi ini dipertahankan sebagai fallback (misal setelah logout)
     var sel = document.getElementById('login-nama');
-
-    // Fallback ke Admin jika timeout 8 detik
-    var timeoutId = setTimeout(function () {
-      if (sel.innerHTML.indexOf('Memuat') !== -1) {
-        sel.innerHTML = '<option value="Admin">Admin</option>';
+    if (!sel) return;
+    if (kasirList && kasirList.length > 0) {
+      var opts = '<option value="">-- Pilih Kasir --</option>';
+      for (var i = 0; i < kasirList.length; i++) {
+        opts += '<option value="' + kasirList[i].nama + '">' + kasirList[i].nama + '</option>';
       }
-    }, 8000);
-
-    google.script.run
-      .withSuccessHandler(function (res) {
-        clearTimeout(timeoutId);
-        // getKasirAktif mengembalikan array langsung di res.data
-        if (res && res.success && res.data && res.data.length > 0) {
-          var opts = '<option value="">-- Pilih Kasir --</option>';
-          for (var i = 0; i < res.data.length; i++) {
-            opts += '<option value="' + res.data[i].nama + '">' + res.data[i].nama + '</option>';
-          }
-          sel.innerHTML = opts;
-        } else {
-          sel.innerHTML = '<option value="Admin">Admin</option>';
-        }
-      })
-      .withFailureHandler(function (err) {
-        clearTimeout(timeoutId);
-        sel.innerHTML = '<option value="Admin">Admin</option>';
-        console.warn('initLogin error:', err ? err.message : 'unknown');
-      })
-      .getKasirAktif();
+      sel.innerHTML = opts;
+    }
   }
 
   function doLogin() {
@@ -75,7 +80,8 @@
         showLoading(false);
         if (res.success) {
           APP.loggedInKasir = res.data;
-          document.getElementById('login-screen').classList.add('hidden');
+          var ls = document.getElementById('login-screen');
+          if (ls) ls.style.display = 'none';
           document.getElementById('app-container').style.display = 'flex';
           document.getElementById('user-name').textContent = res.data.nama;
           document.getElementById('avatar-initial').textContent = res.data.nama.charAt(0).toUpperCase();
@@ -102,7 +108,8 @@
     APP.loggedInKasir = null;
     APP.cart = [];
     document.getElementById('app-container').style.display = 'none';
-    document.getElementById('login-screen').classList.remove('hidden');
+    var ls = document.getElementById('login-screen');
+    if (ls) ls.style.display = '';
     document.getElementById('login-pin').value = '';
     var mob = document.getElementById('mobile-order-btn');
     if (mob) mob.style.display = 'none';
@@ -846,7 +853,11 @@
 
   function renderDaftarPesanan(data) {
     var container = document.getElementById('pesanan-list-container');
-    var countEl = document.getElementById('pesanan-count');
+    var countEl = document.getElementById('pesanan-count-text');
+    var summaryBar = document.getElementById('pesanan-summary-bar');
+    var totalNilaiEl = document.getElementById('pesanan-total-nilai');
+    var totalCountEl = document.getElementById('pesanan-total-count');
+
     if (countEl) countEl.textContent = data.length + ' pesanan';
 
     // Update nav badge
@@ -856,11 +867,25 @@
       navBadge.style.display = data.length > 0 ? '' : 'none';
     }
 
+    // Summary bar
+    if (summaryBar) {
+      if (data.length > 0) {
+        summaryBar.style.display = 'block';
+        var totalNilai = data.reduce(function(s, p) { return s + Number(p.total || 0); }, 0);
+        if (totalNilaiEl) totalNilaiEl.textContent = fmtRp(totalNilai);
+        if (totalCountEl) totalCountEl.textContent = data.length;
+      } else {
+        summaryBar.style.display = 'none';
+      }
+    }
+
     if (!data || data.length === 0) {
-      container.innerHTML = '<div style="text-align:center;padding:60px 24px;color:var(--text-muted)">' +
-        '<span class="material-icons-round" style="font-size:56px;opacity:0.25">receipt_long</span>' +
-        '<p style="margin-top:12px;font-size:15px;font-weight:500">Tidak ada pesanan aktif</p>' +
-        '<small>Buat pesanan dari halaman Kasir</small></div>';
+      container.innerHTML =
+        '<div style="text-align:center;padding:60px 24px;color:var(--text-muted)">' +
+        '<div style="width:72px;height:72px;border-radius:50%;background:var(--bg-card);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;margin:0 auto 16px">' +
+        '<span class="material-icons-round" style="font-size:36px;opacity:0.35">receipt_long</span></div>' +
+        '<p style="font-size:15px;font-weight:600;margin:0 0 6px">Tidak ada pesanan aktif</p>' +
+        '<small style="color:var(--text-muted)">Buat pesanan dari halaman Kasir</small></div>';
       return;
     }
 
@@ -869,54 +894,99 @@
       var p = data[i];
       var idSafe = p.id.replace(/'/g, '');
       var isExpanded = !!_pesananExpandedMap[p.id];
+      var num = i + 1;
+
+      // Item chips preview (maks 3 + sisanya)
+      var previewChips = '';
+      var maxPreview = 3;
+      for (var k = 0; k < Math.min(p.items.length, maxPreview); k++) {
+        var item = p.items[k];
+        previewChips += '<span style="display:inline-flex;align-items:center;gap:3px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:2px 8px;font-size:11px;white-space:nowrap">' +
+          '<span style="font-weight:600;color:var(--primary)">' + item.jumlah + '×</span> ' + item.nama +
+          '</span>';
+      }
+      if (p.items.length > maxPreview) {
+        previewChips += '<span style="font-size:11px;color:var(--text-muted);padding:2px 4px">+' + (p.items.length - maxPreview) + ' lagi</span>';
+      }
+
+      // Full item list (expanded)
       var itemsHtml = '';
       for (var j = 0; j < p.items.length; j++) {
-        var item = p.items[j];
-        itemsHtml += '<div class="pesanan-detail-item">' +
-          '<div>' +
-          '<span class="pesanan-detail-nama">' + item.nama + '</span>' +
-          (item.catatan ? '<div class="pesanan-detail-catatan">' + item.catatan + '</div>' : '') +
-          '</div>' +
-          '<div style="text-align:right;white-space:nowrap">' +
-          '<span style="color:var(--text-muted);font-size:12px">' + fmtRp(item.harga) + ' × ' + item.jumlah + '</span> ' +
-          '<strong style="font-size:13px">' + fmtRp(item.subtotal) + '</strong>' +
-          '</div>' +
+        var itm = p.items[j];
+        itemsHtml +=
+          '<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border)">' +
+            '<div style="flex:1;min-width:0">' +
+              '<div style="font-weight:600;font-size:13px">' + itm.nama + '</div>' +
+              (itm.catatan ? '<div style="font-size:11px;color:var(--text-muted);margin-top:2px">📝 ' + itm.catatan + '</div>' : '') +
+            '</div>' +
+            '<div style="text-align:right;white-space:nowrap;margin-left:12px">' +
+              '<div style="font-size:11px;color:var(--text-muted)">' + fmtRp(itm.harga) + ' × ' + itm.jumlah + '</div>' +
+              '<div style="font-weight:700;font-size:13px">' + fmtRp(itm.subtotal) + '</div>' +
+            '</div>' +
           '</div>';
       }
 
-      html += '<div class="pesanan-card">' +
-        '<div class="pesanan-card-header" onclick="togglePesananCard(\'' + idSafe + '\')">' +
-        '<div style="flex:1;min-width:0;">' +
-        '<span class="badge badge-warning" style="margin-bottom:6px;display:inline-block">Diproses</span>' +
-        '<div class="pesanan-card-nama">' + p.namaPelanggan + '</div>' +
-        '<div class="pesanan-card-meta">No. <span style="color:var(--primary);font-weight:600">' + p.id + '</span></div>' +
-        '<div class="pesanan-card-meta">' + p.tanggal + ' · Kasir: ' + p.kasir + '</div>' +
-        '</div>' +
-        '<div style="text-align:right;display:flex;align-items:center;gap:8px;flex-shrink:0;">' +
-        '<div>' +
-        '<div style="font-size:11px;color:var(--text-muted)">Total</div>' +
-        '<div style="font-size:20px;font-weight:800;color:var(--primary)">' + fmtRp(p.total) + '</div>' +
-        '</div>' +
-        '<span class="material-icons-round pesanan-chevron' + (isExpanded ? ' expanded' : '') + '">expand_more</span>' +
-        '</div>' +
-        '</div>' +
-        '<div class="pesanan-card-body' + (isExpanded ? ' expanded' : '') + '">' +
-        '<div class="pesanan-card-items">' + itemsHtml + '</div>' +
-        '<div class="pesanan-card-summary">' +
-        '<div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0"><span>Total Pesanan</span><span style="font-weight:600">' + fmtRp(p.subtotal) + '</span></div>' +
-        (p.pajak > 0 ? '<div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0"><span>Pajak</span><span>' + fmtRp(p.pajak) + '</span></div>' : '') +
-        (p.diskon > 0 ? '<div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0"><span>Diskon</span><span style="color:var(--danger)">-' + fmtRp(p.diskon) + '</span></div>' : '') +
-        '<div style="display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid var(--border);margin-top:4px"><strong>Total</strong><strong style="color:var(--primary);font-size:15px">' + fmtRp(p.total) + '</strong></div>' +
-        '</div>' +
-        '<div class="pesanan-card-actions">' +
-        '<button class="btn btn-sm" style="border:1px solid var(--danger);color:var(--danger);background:transparent" onclick="batalkanPesananFE(\'' + idSafe + '\')">' +
-        '<span class="material-icons-round" style="font-size:14px">cancel</span> Batalkan' +
-        '</button>' +
-        '<button class="btn btn-primary" onclick="openBayarPesananModal(\'' + idSafe + '\',' + p.total + ')">' +
-        '<span class="material-icons-round" style="font-size:14px">payments</span> Proses Pembayaran' +
-        '</button>' +
-        '</div>' +
-        '</div>' +
+      html +=
+        '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;margin-bottom:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06);transition:box-shadow .2s">' +
+          // Header — selalu tampil, bisa diklik
+          '<div onclick="togglePesananCard(\'' + idSafe + '\')" style="padding:16px;cursor:pointer;user-select:none">' +
+            '<div style="display:flex;align-items:flex-start;gap:12px">' +
+              // Nomor urut
+              '<div style="width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,var(--primary),#0d9488);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0">' + num + '</div>' +
+              '<div style="flex:1;min-width:0">' +
+                // Nama pelanggan + badge
+                '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">' +
+                  '<span style="font-weight:700;font-size:15px">' + (p.namaPelanggan || 'Tanpa Nama') + '</span>' +
+                  '<span style="display:inline-flex;align-items:center;gap:3px;background:#fef3c7;color:#92400e;border:1px solid #fcd34d;border-radius:20px;padding:2px 8px;font-size:10px;font-weight:700"><span class="material-icons-round" style="font-size:10px">schedule</span>Menunggu</span>' +
+                '</div>' +
+                // Meta info
+                '<div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);margin-bottom:8px">' +
+                  '<span class="material-icons-round" style="font-size:12px">tag</span>' +
+                  '<span style="color:var(--primary);font-weight:600">' + p.id + '</span>' +
+                  '<span>·</span>' +
+                  '<span class="material-icons-round" style="font-size:12px">access_time</span>' +
+                  '<span>' + p.tanggal + '</span>' +
+                  '<span>·</span>' +
+                  '<span class="material-icons-round" style="font-size:12px">person</span>' +
+                  '<span>' + p.kasir + '</span>' +
+                '</div>' +
+                // Item chips preview
+                '<div style="display:flex;flex-wrap:wrap;gap:4px">' + previewChips + '</div>' +
+              '</div>' +
+              // Total + chevron
+              '<div style="text-align:right;flex-shrink:0">' +
+                '<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px">Total</div>' +
+                '<div style="font-size:18px;font-weight:800;color:var(--primary)">' + fmtRp(p.total) + '</div>' +
+                '<span class="material-icons-round" style="font-size:18px;color:var(--text-muted);transition:transform .2s;display:block;transform:rotate(' + (isExpanded ? '180deg' : '0deg') + ')">' +
+                  'expand_more' +
+                '</span>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+
+          // Body — hanya tampil jika expanded
+          (isExpanded ?
+            '<div style="border-top:1px solid var(--border)">' +
+              // Item list
+              '<div style="padding:12px 16px 0">' + itemsHtml + '</div>' +
+              // Summary
+              '<div style="padding:10px 16px;background:var(--bg);margin:12px 16px;border-radius:10px">' +
+                '<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-muted);margin-bottom:4px"><span>Subtotal</span><span>' + fmtRp(p.subtotal) + '</span></div>' +
+                (p.pajak > 0 ? '<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-muted);margin-bottom:4px"><span>Pajak</span><span>' + fmtRp(p.pajak) + '</span></div>' : '') +
+                (p.diskon > 0 ? '<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--danger);margin-bottom:4px"><span>Diskon</span><span>-' + fmtRp(p.diskon) + '</span></div>' : '') +
+                '<div style="display:flex;justify-content:space-between;font-weight:700;font-size:14px;padding-top:6px;border-top:1px solid var(--border)"><span>Total</span><span style="color:var(--primary)">' + fmtRp(p.total) + '</span></div>' +
+              '</div>' +
+              // Action buttons
+              '<div style="display:flex;gap:8px;padding:0 16px 16px">' +
+                '<button style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:10px;border:1.5px solid #dc2626;color:#dc2626;background:transparent;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer" onclick="batalkanPesananFE(\'' + idSafe + '\')">' +
+                  '<span class="material-icons-round" style="font-size:16px">cancel</span> Batalkan' +
+                '</button>' +
+                '<button style="flex:2;display:flex;align-items:center;justify-content:center;gap:6px;padding:10px;background:linear-gradient(135deg,var(--primary),#0d9488);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(13,148,136,.3)" onclick="openBayarPesananModal(\'' + idSafe + '\',' + p.total + ')">' +
+                  '<span class="material-icons-round" style="font-size:16px">payments</span> Proses Pembayaran' +
+                '</button>' +
+              '</div>' +
+            '</div>'
+          : '') +
         '</div>';
     }
     container.innerHTML = html;
@@ -1281,20 +1351,29 @@
     if (countEl) countEl.textContent = 'Menampilkan ' + (data.length > 0 ? (startIdx + 1) : 0) + '-' + endIdx + ' dari ' + data.length + ' transaksi';
 
     var tbody = document.getElementById('riwayat-tbody');
+    var mobileList = document.getElementById('riwayat-mobile-list');
     if (!tbody) return;
     if (!data || data.length === 0) {
       tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-muted)">Tidak ada transaksi ditemukan</td></tr>';
+      if (mobileList) mobileList.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-muted)">Tidak ada transaksi ditemukan</div>';
       updatePaginationUI(0, 1);
       return;
     }
     var html = '';
+    var mobileHtml = '';
     for (var j = 0; j < pageData.length; j++) {
       var t = pageData[j];
       var statusClass = t.status === 'Selesai' ? 'status-selesai' :
                         t.status === 'Pesanan'  ? 'status-pending'  : 'status-dibatalkan';
 
-      // Tampilan waktu: jika ada waktuPembayaran tampilkan itu, else tanggal biasa
-      // Jika merupakan pesanan hold yg dibayar beda hari, tambahkan badge info
+      var statusBadgeColor = t.status === 'Selesai'
+        ? 'background:#d1fae5;color:#065f46;border:1px solid #6ee7b7'
+        : t.status === 'Pesanan'
+        ? 'background:#fef3c7;color:#92400e;border:1px solid #fcd34d'
+        : 'background:#fee2e2;color:#991b1b;border:1px solid #fca5a5';
+      var statusBadgeHtml = '<span style="display:inline-flex;align-items:center;gap:3px;' + statusBadgeColor + ';padding:3px 8px;border-radius:20px;font-size:11px;font-weight:700">' + t.status + '</span>';
+
+      // Waktu display
       var waktuHtml = '';
       if (t.isPesananHold && t.tanggalPesanan && t.waktuPembayaran) {
         waktuHtml = '<span style="white-space:nowrap">' + t.waktuPembayaran +
@@ -1304,22 +1383,54 @@
         waktuHtml = '<span style="white-space:nowrap">' + (t.tanggal || '-') + '</span>';
       }
 
+      var metodeBadge = t.jenisPembayaran === 'QRIS'
+        ? '<span style="display:inline-flex;align-items:center;gap:2px;background:#e0f2fe;color:#0369a1;border-radius:6px;padding:2px 7px;font-size:11px;font-weight:600"><span class="material-icons-round" style="font-size:11px">qr_code_2</span>QRIS</span>'
+        : '<span style="display:inline-flex;align-items:center;gap:2px;background:#f0fdf4;color:#15803d;border-radius:6px;padding:2px 7px;font-size:11px;font-weight:600"><span class="material-icons-round" style="font-size:11px">payments</span>' + (t.jenisPembayaran || 'Cash') + '</span>';
+
+      // Desktop row
       html += '<tr class="riwayat-row" onclick="showDetailTransaksi(\'' + t.id + '\')" style="cursor:pointer" title="Klik untuk lihat detail">' +
-        '<td><strong>' + t.id + '</strong></td>' +
-        '<td>' + waktuHtml + '</td>' +
-        '<td>' + (t.pelanggan || '—') + '</td>' +
-        '<td>' + (t.jumlahItem || 0) + ' item</td>' +
+        '<td><strong style="font-size:12px;font-family:monospace">' + t.id + '</strong></td>' +
+        '<td style="font-size:12px">' + waktuHtml + '</td>' +
+        '<td style="font-size:12px">' + (t.pelanggan || '—') + '</td>' +
+        '<td style="font-size:12px;text-align:center">' + (t.jumlahItem || 0) + '</td>' +
         '<td><strong>' + fmtRp(t.total) + '</strong></td>' +
-        '<td>' + (t.jenisPembayaran || '-') + '</td>' +
-        '<td>' + (t.kasir || '-') + '</td>' +
-        '<td><span class="' + statusClass + '">' + t.status + '</span></td>' +
-        '<td style="display:flex;gap:4px;">' +
-        '<button class="btn btn-sm btn-secondary" onclick="event.stopPropagation();showDetailTransaksi(\'' + t.id + '\')" title="Detail"><span class="material-icons-round" style="font-size:14px">visibility</span></button>' +
-        '<button class="btn btn-sm btn-danger" onclick="event.stopPropagation();confirmHapusTransaksi(\'' + t.id + '\',\'' + t.status + '\')" title="Hapus"><span class="material-icons-round" style="font-size:14px">delete</span></button>' +
-        '</td>' +
+        '<td>' + metodeBadge + '</td>' +
+        '<td style="font-size:12px">' + (t.kasir || '-') + '</td>' +
+        '<td>' + statusBadgeHtml + '</td>' +
+        '<td><div style="display:flex;gap:4px">' +
+        '<button class="btn btn-sm btn-secondary" onclick="event.stopPropagation();showDetailTransaksi(\'' + t.id + '\')" title="Detail"><span class="material-icons-round" style="font-size:13px">visibility</span></button>' +
+        '<button class="btn btn-sm btn-danger" onclick="event.stopPropagation();confirmHapusTransaksi(\'' + t.id + '\',\'' + t.status + '\')" title="Hapus"><span class="material-icons-round" style="font-size:13px">delete</span></button>' +
+        '</div></td>' +
         '</tr>';
+
+      // Mobile card
+      mobileHtml += '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:8px;cursor:pointer" onclick="showDetailTransaksi(\'' + t.id + '\')">' +
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">' +
+          '<div>' +
+            '<div style="font-weight:700;font-size:13px;font-family:monospace">' + t.id + '</div>' +
+            '<div style="font-size:11px;color:var(--text-muted);margin-top:2px">' + (t.tanggal || '—') + (t.pelanggan ? ' · ' + t.pelanggan : '') + '</div>' +
+          '</div>' +
+          '<div style="display:flex;gap:6px;align-items:center">' + statusBadgeHtml + '</div>' +
+        '</div>' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">' +
+          '<div>' +
+            '<div style="font-size:11px;color:var(--text-muted)">Total · ' + (t.jumlahItem || 0) + ' item</div>' +
+            '<div style="font-size:18px;font-weight:800;color:var(--primary)">' + fmtRp(t.total) + '</div>' +
+          '</div>' +
+          '<div style="text-align:right">' +
+            metodeBadge + '<br>' +
+            '<span style="font-size:11px;color:var(--text-muted);margin-top:4px;display:block">Kasir: ' + (t.kasir || '—') + '</span>' +
+          '</div>' +
+        '</div>' +
+        (t.isPesananHold ? '<div style="font-size:11px;background:#fef3c7;color:#92400e;border-radius:6px;padding:4px 8px;margin-bottom:8px">⏱ Dibayar: ' + (t.waktuPembayaran || '-') + '</div>' : '') +
+        '<div style="display:flex;gap:8px;justify-content:flex-end">' +
+          '<button class="btn btn-sm btn-secondary" onclick="event.stopPropagation();showDetailTransaksi(\'' + t.id + '\')" title="Detail"><span class="material-icons-round" style="font-size:13px">visibility</span> Detail</button>' +
+          '<button class="btn btn-sm btn-danger" onclick="event.stopPropagation();confirmHapusTransaksi(\'' + t.id + '\',\'' + t.status + '\')" title="Hapus"><span class="material-icons-round" style="font-size:13px">delete</span></button>' +
+        '</div>' +
+      '</div>';
     }
     tbody.innerHTML = html;
+    if (mobileList) mobileList.innerHTML = mobileHtml;
     updatePaginationUI(data.length, totalPages);
   }
 
@@ -2214,19 +2325,112 @@
 
   // ==================== EXPORT CSV ====================
   function exportLaporanCSV() {
-    if (!_lastLaporanData || !_lastLaporanData.transaksi || _lastLaporanData.transaksi.length === 0) {
-      showToast('Tidak ada data untuk diekspor', 'warning');
+    // Tampilkan modal pilihan periode ekspor
+    var modal = document.getElementById('modal-export-csv');
+    if (modal) { showModal('modal-export-csv'); return; }
+    // Fallback: langsung export data yang sudah dimuat
+    _doExportCSV('loaded', null, null);
+  }
+
+  function openExportModal() {
+    showModal('modal-export-csv');
+  }
+
+  function _doExportCSV(mode, tglMulai, tglAkhir) {
+    closeModal('modal-export-csv');
+    showLoading(true);
+
+    var now = new Date();
+    var filter = {};
+    var periodeLabel = '';
+
+    if (mode === 'harian') {
+      var tgl = document.getElementById('export-tgl-harian') ? document.getElementById('export-tgl-harian').value : '';
+      if (!tgl) tgl = now.getFullYear() + '-' + ('0'+(now.getMonth()+1)).slice(-2) + '-' + ('0'+now.getDate()).slice(-2);
+      filter = { tanggalMulai: tgl, tanggalAkhir: tgl };
+      periodeLabel = 'harian-' + tgl;
+    } else if (mode === 'mingguan') {
+      var mulai = new Date(now);
+      mulai.setDate(mulai.getDate() - mulai.getDay());
+      var akhir = new Date(mulai);
+      akhir.setDate(akhir.getDate() + 6);
+      var fmt = function(d) { return d.getFullYear() + '-' + ('0'+(d.getMonth()+1)).slice(-2) + '-' + ('0'+d.getDate()).slice(-2); };
+      filter = { tanggalMulai: fmt(mulai), tanggalAkhir: fmt(akhir) };
+      periodeLabel = 'mingguan-' + fmt(mulai) + '_sd_' + fmt(akhir);
+    } else if (mode === 'bulanan') {
+      var bulanEl = document.getElementById('export-bulan');
+      var bulanVal = bulanEl ? bulanEl.value : (now.getFullYear() + '-' + ('0'+(now.getMonth()+1)).slice(-2));
+      var parts = bulanVal.split('-');
+      var y = parseInt(parts[0]), m = parseInt(parts[1]) - 1;
+      var mulaiB = new Date(y, m, 1);
+      var akhirB = new Date(y, m + 1, 0);
+      var fmtB = function(d) { return d.getFullYear() + '-' + ('0'+(d.getMonth()+1)).slice(-2) + '-' + ('0'+d.getDate()).slice(-2); };
+      filter = { tanggalMulai: fmtB(mulaiB), tanggalAkhir: fmtB(akhirB) };
+      periodeLabel = 'bulanan-' + bulanVal;
+    } else {
+      // Gunakan data yang sudah dimuat
+      showLoading(false);
+      _generateCSVFromData(_lastLaporanData, 'laporan-penjualan');
       return;
     }
-    var rows = [['ID Transaksi','Waktu','Pelanggan','Jumlah Item','Subtotal','Pajak','Diskon','Total','Pembayaran','Kasir','Status']];
-    var t = _lastLaporanData.transaksi;
+
+    google.script.run
+      .withSuccessHandler(function(res) {
+        showLoading(false);
+        if (res && res.success) {
+          _generateCSVFromData(res.data, 'laporan-' + periodeLabel);
+        } else {
+          showToast((res ? res.message : 'Gagal fetch data'), 'error');
+        }
+      })
+      .withFailureHandler(function(err) {
+        showLoading(false);
+        showToast('Gagal: ' + (err ? err.message : 'Error'), 'error');
+      })
+      .getLaporan(filter);
+  }
+
+  function _generateCSVFromData(laporanData, fname) {
+    if (!laporanData || !laporanData.transaksi || laporanData.transaksi.length === 0) {
+      showToast('Tidak ada data transaksi untuk periode ini', 'warning');
+      return;
+    }
+    var t = laporanData.transaksi;
+    var r = laporanData.ringkasan || {};
+
+    // Header info laporan
+    var rows = [
+      ['LAPORAN PENJUALAN - ' + (APP.settings.nama_toko || 'Toko')],
+      ['Tanggal Export', new Date().toLocaleString('id-ID')],
+      ['Total Transaksi', r.totalTransaksi || t.length],
+      ['Total Pendapatan', 'Rp ' + ((r.totalPendapatan || 0).toLocaleString('id-ID'))],
+      [''],
+      ['ID Transaksi','Waktu','Pelanggan','Jumlah Item','Subtotal (Rp)','Pajak (Rp)','Diskon (Rp)','Total (Rp)','Metode Pembayaran','Kasir','Status']
+    ];
     for (var i = 0; i < t.length; i++) {
       rows.push([
-        t[i].id, t[i].tanggal, t[i].pelanggan || '-',
-        t[i].jumlahItem, t[i].subtotal || 0, t[i].pajak || 0, t[i].diskon || 0, t[i].total,
-        t[i].jenisPembayaran, t[i].kasir || '-', t[i].status
+        t[i].id,
+        t[i].tanggal,
+        t[i].pelanggan || '-',
+        t[i].jumlahItem || 0,
+        t[i].subtotal || 0,
+        t[i].pajak || 0,
+        t[i].diskon || 0,
+        t[i].total || 0,
+        t[i].jenisPembayaran || '-',
+        t[i].kasir || '-',
+        t[i].status || '-'
       ]);
     }
+    // Footer ringkasan
+    rows.push(['']);
+    rows.push(['--- RINGKASAN ---']);
+    rows.push(['Total Transaksi', r.totalTransaksi || t.length]);
+    rows.push(['Total Pendapatan', r.totalPendapatan || 0]);
+    rows.push(['Total Pajak', r.totalPajak || 0]);
+    rows.push(['Total Diskon', r.totalDiskon || 0]);
+    rows.push(['Rata-rata / Transaksi', r.rataRata || 0]);
+
     var csvContent = rows.map(function(row) {
       return row.map(function(cell) {
         var s = String(cell === null || cell === undefined ? '' : cell);
@@ -2237,16 +2441,15 @@
       }).join(',');
     }).join('\n');
 
-    var now = new Date();
-    var fname = 'laporan-penjualan-' + now.getFullYear() + ('0'+(now.getMonth()+1)).slice(-2) + ('0'+now.getDate()).slice(-2) + '.csv';
+    var filename = fname + '.csv';
     var blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
-    a.href = url; a.download = fname; a.style.display = 'none';
+    a.href = url; a.download = filename; a.style.display = 'none';
     document.body.appendChild(a);
     a.click();
     setTimeout(function() { document.body.removeChild(a); URL.revokeObjectURL(url); }, 500);
-    showToast('Export berhasil: ' + fname, 'success');
+    showToast('✅ Export berhasil: ' + filename, 'success');
   }
 
   // ==================== LAPORAN ITEM TERJUAL ====================
@@ -2393,11 +2596,55 @@
     togglePajakField();
     toggleNotifStokEmailField();
 
+    // Toggle login
+    var loginAktif = APP.settings.login_aktif !== 'Tidak';
+    var loginChk = document.getElementById('set-login-aktif');
+    var loginBadge = document.getElementById('login-status-badge');
+    var loginWarn = document.getElementById('login-nonaktif-warning');
+    if (loginChk) loginChk.checked = loginAktif;
+    if (loginBadge) {
+      loginBadge.textContent = loginAktif ? 'Aktif' : 'Nonaktif';
+      loginBadge.style.background = loginAktif ? '#d1fae5' : '#fee2e2';
+      loginBadge.style.color = loginAktif ? '#065f46' : '#991b1b';
+      loginBadge.style.border = '1px solid ' + (loginAktif ? '#6ee7b7' : '#fca5a5');
+    }
+    if (loginWarn) loginWarn.style.display = loginAktif ? 'none' : 'flex';
+
     // Load kasir list
     loadKasirTable();
 
     // Load status notifikasi email
     loadStatusNotifEmail();
+  }
+
+  function savePengaturanLogin() {
+    var chk = document.getElementById('set-login-aktif');
+    var loginAktif = chk ? chk.checked : true;
+    var badge = document.getElementById('login-status-badge');
+    var warn = document.getElementById('login-nonaktif-warning');
+
+    // Update badge & warning UI segera
+    if (badge) {
+      badge.textContent = loginAktif ? 'Aktif' : 'Nonaktif';
+      badge.style.background = loginAktif ? '#d1fae5' : '#fee2e2';
+      badge.style.color = loginAktif ? '#065f46' : '#991b1b';
+      badge.style.border = '1px solid ' + (loginAktif ? '#6ee7b7' : '#fca5a5');
+    }
+    if (warn) warn.style.display = loginAktif ? 'none' : 'flex';
+
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (res && res.success) {
+          APP.settings.login_aktif = loginAktif ? 'Ya' : 'Tidak';
+          showToast('Pengaturan login ' + (loginAktif ? 'diaktifkan' : 'dinonaktifkan'), 'success');
+        } else {
+          showToast((res ? res.message : 'Gagal menyimpan'), 'error');
+        }
+      })
+      .withFailureHandler(function(err) {
+        showToast('Error: ' + (err ? err.message : 'Gagal'), 'error');
+      })
+      .savePengaturan({ login_aktif: loginAktif ? 'Ya' : 'Tidak' });
   }
 
   function loadStatusNotifEmail() {

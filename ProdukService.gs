@@ -128,8 +128,8 @@ function tambahProduk(data) {
       return errorResponse(errors.join(', '));
     }
     
-    if (Number(data.harga) <= 0) {
-      return errorResponse('Harga harus lebih dari 0');
+    if (Number(data.harga) < 0) {
+      return errorResponse('Harga tidak boleh negatif');
     }
     
     var sheet = getSheet(SHEET_PRODUK);

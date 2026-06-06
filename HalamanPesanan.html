@@ -10,14 +10,31 @@
     <h1 class="page-title">Daftar Pesanan</h1>
   </div>
   <div style="display:flex;align-items:center;gap:8px;">
-    <span id="pesanan-count" class="badge badge-warning" style="font-size:12px">0 pesanan</span>
+    <div id="pesanan-count" style="display:flex;align-items:center;gap:6px;background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #fcd34d;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:700;color:#92400e">
+      <span class="material-icons-round" style="font-size:14px">receipt_long</span>
+      <span id="pesanan-count-text">0 pesanan</span>
+    </div>
     <button class="btn btn-secondary btn-sm" onclick="loadDaftarPesanan()" title="Refresh">
       <span class="material-icons-round" style="font-size:16px">refresh</span>
     </button>
   </div>
 </div>
 
-<div style="padding:16px 24px 24px;">
+<div class="page-body">
+  <!-- Summary bar -->
+  <div id="pesanan-summary-bar" style="display:none;background:linear-gradient(135deg,var(--primary),#0d9488);border-radius:12px;padding:14px 20px;margin-bottom:20px;color:#fff">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <div>
+        <div style="font-size:11px;opacity:.8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">Total Nilai Pesanan Aktif</div>
+        <div id="pesanan-total-nilai" style="font-size:22px;font-weight:800">Rp 0</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:11px;opacity:.8;margin-bottom:2px">Pesanan Menunggu</div>
+        <div id="pesanan-total-count" style="font-size:22px;font-weight:800">0</div>
+      </div>
+    </div>
+  </div>
+
   <div id="pesanan-list-container">
     <div style="text-align:center;padding:60px 24px;color:var(--text-muted)">
       <span class="material-icons-round" style="font-size:48px;opacity:0.3">receipt_long</span>

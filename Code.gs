@@ -19,7 +19,22 @@
  */
 function doGet(e) {
   var template = HtmlService.createTemplateFromFile('Index');
-  
+
+  // Inject login config langsung ke template (tanpa google.script.run round-trip)
+  // Ini membuat halaman login bisa ditampilkan INSTAN saat pertama kali dibuka
+  try {
+    template.loginAktif = String(getSetting('login_aktif') || 'Ya') === 'Ya';
+    var kasirData = getKasirListInternal().filter(function(k) { return k.status === 'Aktif'; });
+    template.kasirListJson = JSON.stringify(
+      kasirData.length > 0 ? kasirData : [{ id: 'KSR-0001', nama: 'Admin', role: 'Admin' }]
+    );
+    template.namaToko = getSetting('nama_toko') || 'Sistem Kasir';
+  } catch (ex) {
+    template.loginAktif = true;
+    template.kasirListJson = JSON.stringify([{ id: 'KSR-0001', nama: 'Admin', role: 'Admin' }]);
+    template.namaToko = 'Sistem Kasir';
+  }
+
   return template.evaluate()
     .setTitle('Sistem Kasir - POS')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no')
@@ -152,6 +167,7 @@ function setupDatabase() {
       ['telepon', '0812-xxxx-xxxx'],
       ['pajak_persen', 10],
       ['pajak_aktif', 'Ya'],
+      ['login_aktif', 'Ya'],
       ['notif_stok_email_aktif', 'Tidak'],
       ['notif_stok_email_tujuan', ''],
       ['notif_stok_email_last_sent', ''],
@@ -574,6 +590,7 @@ function savePengaturan(settings) {
     if (settings.telepon !== undefined) setSetting('telepon', settings.telepon);
     if (settings.pajak_aktif !== undefined) setSetting('pajak_aktif', settings.pajak_aktif);
     if (settings.pajak_persen !== undefined) setSetting('pajak_persen', Number(settings.pajak_persen));
+    if (settings.login_aktif !== undefined) setSetting('login_aktif', settings.login_aktif);
     if (settings.notif_stok_email_aktif !== undefined) {
       setSetting('notif_stok_email_aktif', settings.notif_stok_email_aktif);
     }
@@ -584,6 +601,25 @@ function savePengaturan(settings) {
     return successResponse(null, 'Pengaturan berhasil disimpan');
   } catch (e) {
     return errorResponse('Gagal simpan: ' + e.message);
+  }
+}
+
+/**
+ * Cek konfigurasi login - dipanggil frontend saat halaman pertama kali dimuat.
+ * Mengembalikan: loginAktif (bool), kasirList (array), namaToko (string)
+ */
+function getLoginConfig() {
+  try {
+    var loginAktif = String(getSetting('login_aktif') || 'Ya') === 'Ya';
+    var namaToko = getSetting('nama_toko') || 'Sistem Kasir';
+    var kasirList = [];
+    if (loginAktif) {
+      kasirList = getKasirListInternal().filter(function(k) { return k.status === 'Aktif'; });
+      if (!kasirList.length) kasirList = [{ id: 'KSR-0001', nama: 'Admin', role: 'Admin' }];
+    }
+    return successResponse({ loginAktif: loginAktif, kasirList: kasirList, namaToko: namaToko });
+  } catch (e) {
+    return successResponse({ loginAktif: true, kasirList: [{ id: 'KSR-0001', nama: 'Admin', role: 'Admin' }], namaToko: 'Sistem Kasir' });
   }
 }
 
